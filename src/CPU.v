@@ -32,11 +32,11 @@ module CPU(
     wire [31 : 0]source_1_register = registers[source_1_register_index];
     wire [31 : 0]source_2_register = registers[source_2_register_index];
 
-    wire [31 : 0]immediate_i = {{21{instruction[31]}}, instruction[30 : 20]};
-    wire [31 : 0]immediate_s = {{21{instruction[31]}}, instruction[30 : 25], instruction[11 : 7]};
-    wire [31 : 0]immediate_b = {{20{instruction[31]}}, instruction[7], instruction[30 : 25], instruction[11 : 8], 1'b0};
-    wire [31 : 0]immediate_u = {instruction[31 : 12], 12'b0};
-    wire [31 : 0]immediate_j = {{12{instruction[31]}}, instruction[19 : 12], instruction[20], instruction[30 : 21], 1'b0};
+    wire [31 : 0]immediate = {{21{instruction[31]}}, instruction[30 : 20]};
+    wire [31 : 0]immediate_store = {{21{instruction[31]}}, instruction[30 : 25], instruction[11 : 7]};
+    wire [31 : 0]immediate_branch = {{20{instruction[31]}}, instruction[7], instruction[30 : 25], instruction[11 : 8], 1'b0};
+    wire [31 : 0]immediate_upper = {instruction[31 : 12], 12'b0};
+    wire [31 : 0]immediate_jump = {{12{instruction[31]}}, instruction[19 : 12], instruction[20], instruction[30 : 21], 1'b0};
 
     task set_destination_register(
         input [31 : 0]value
@@ -62,15 +62,15 @@ module CPU(
         if (opcode[1 : 0] === 2'b11) begin
             if (opcode[6 : 2] === 5'b00100) begin // OP-IMM
                 if (function_3 === 3'b000) begin // ADDI
-                    $display("addi x%0d, x%0d, %0d", destination_register_index, source_1_register_index, $signed(immediate_i));
+                    $display("addi x%0d, x%0d, %0d", destination_register_index, source_1_register_index, $signed(immediate));
 
-                    set_destination_register(immediate_i + source_1_register);
+                    set_destination_register(immediate + source_1_register);
 
                     program_counter += 4;
                 end else if (function_3 === 3'b010) begin // SLTI
-                    $display("slti x%0d, x%0d, %0d", destination_register_index, source_1_register_index, $signed(immediate_i));
+                    $display("slti x%0d, x%0d, %0d", destination_register_index, source_1_register_index, $signed(immediate));
 
-                    if ($signed(source_1_register) < $signed(immediate_i)) begin
+                    if ($signed(source_1_register) < $signed(immediate)) begin
                         set_destination_register(1);
                     end else begin
                         set_destination_register(0);
@@ -78,9 +78,9 @@ module CPU(
 
                     program_counter += 4;
                 end else if (function_3 === 3'b011) begin // SLTIU
-                    $display("sltiu x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate_i);
+                    $display("sltiu x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
 
-                    if (source_1_register < immediate_i) begin
+                    if (source_1_register < immediate) begin
                         set_destination_register(1);
                     end else begin
                         set_destination_register(0);
@@ -88,38 +88,38 @@ module CPU(
 
                     program_counter += 4;
                 end else if (function_3 === 3'b100) begin // XORI
-                    $display("xori x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate_i);
+                    $display("xori x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
 
-                    set_destination_register(source_1_register ^ immediate_i);
+                    set_destination_register(source_1_register ^ immediate);
 
                     program_counter += 4;
                 end else if (function_3 === 3'b110) begin // ORI
-                    $display("ori x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate_i);
+                    $display("ori x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
 
-                    set_destination_register(source_1_register | immediate_i);
+                    set_destination_register(source_1_register | immediate);
 
                     program_counter += 4;
                 end else if (function_3 === 3'b111) begin // ANDI
-                    $display("andi x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate_i);
+                    $display("andi x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
 
-                    set_destination_register(source_1_register & immediate_i);
+                    set_destination_register(source_1_register & immediate);
 
                     program_counter += 4;
                 end else if (function_3 === 3'b001) begin // SLLI
-                    $display("xori x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate_i);
+                    $display("xori x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
 
-                    set_destination_register(source_1_register << immediate_i[4 : 0]);
+                    set_destination_register(source_1_register << immediate[4 : 0]);
 
                     program_counter += 4;
                 end else if (function_3 === 3'b101) begin
                     if (instruction[30] === 0) begin // SRLI
-                        $display("srli x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate_i[4 : 0]);
+                        $display("srli x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate[4 : 0]);
 
-                        set_destination_register(source_1_register >> immediate_i[4 : 0]);
+                        set_destination_register(source_1_register >> immediate[4 : 0]);
                     end else begin // SRAI
-                        $display("srai x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate_i[4 : 0]);
+                        $display("srai x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate[4 : 0]);
 
-                        set_destination_register(source_1_register >>> immediate_i[4 : 0]);
+                        set_destination_register(source_1_register >>> immediate[4 : 0]);
                     end
 
                     program_counter += 4;
@@ -195,15 +195,15 @@ module CPU(
                     program_counter += 4;
                 end
             end else if (opcode[6 : 2] === 5'b00101) begin // AUIPC
-                $display("auipc x%0d, %0d", destination_register_index, immediate_u);
+                $display("auipc x%0d, %0d", destination_register_index, immediate_upper);
 
-                program_counter += immediate_u;
+                program_counter += immediate_upper;
 
                 set_destination_register(program_counter);
             end else if (opcode[6 : 2] === 5'b01101) begin // LUI
-                $display("lui x%0d, %0d", destination_register_index, immediate_u);
+                $display("lui x%0d, %0d", destination_register_index, immediate_upper);
 
-                set_destination_register(immediate_u);
+                set_destination_register(immediate_upper);
 
                 program_counter += 4;
             end else if (opcode[6 : 2] === 5'b11000) begin
@@ -211,79 +211,79 @@ module CPU(
 
                 if (function_3 === 3'b000) begin // BEQ
                     if (source_1_register === source_2_register) begin
-                        program_counter += immediate_b;
+                        program_counter += immediate_branch;
                     end else begin
                         program_counter += 4;
                     end
                 end else if (function_3 === 3'b001) begin // BNE
                     if (source_1_register != source_2_register) begin
-                        program_counter += immediate_b;
+                        program_counter += immediate_branch;
                     end else begin
                         program_counter += 4;
                     end
                 end else if (function_3 === 3'b100) begin // BLT
                     if ($signed(source_1_register) < $signed(source_2_register)) begin
-                        program_counter += immediate_b;
+                        program_counter += immediate_branch;
                     end else begin
                         program_counter += 4;
                     end
                 end else if (function_3 === 3'b101) begin // BGE
                     if ($signed(source_1_register) >= $signed(source_2_register)) begin
-                        program_counter += immediate_b;
+                        program_counter += immediate_branch;
                     end else begin
                         program_counter += 4;
                     end
                 end else if (function_3 === 3'b110) begin // BLTU
                     if (source_1_register < source_2_register) begin
-                        program_counter += immediate_b;
+                        program_counter += immediate_branch;
                     end else begin
                         program_counter += 4;
                     end
                 end else if (function_3 === 3'b111) begin // BGEU
                     if (source_1_register >= source_2_register) begin
-                        program_counter += immediate_b;
+                        program_counter += immediate_branch;
                     end else begin
                         program_counter += 4;
                     end
                 end
             end else if (opcode[6 : 2] === 5'b11001) begin // JAL
-                $display("jal x%0d, %0d", destination_register_index, $signed(immediate_j));
+                $display("jal x%0d, %0d", destination_register_index, $signed(immediate_jump));
 
                 set_destination_register(program_counter + 4);
 
-                program_counter += immediate_j;
+                program_counter += immediate_jump;
             end else if (opcode[6 : 2] === 5'b11011) begin // JALR
-                $display("jalr x%0d, x%0d, %0d", destination_register_index, source_1_register_index, $signed(immediate_j));
+                $display("jalr x%0d, x%0d, %0d", destination_register_index, source_1_register_index, $signed(immediate_jump));
 
                 set_destination_register(program_counter + 4);
 
-                program_counter += immediate_i + source_1_register;
+                program_counter += immediate + source_1_register;
                 program_counter[0] = 0;
             end else if (opcode[6 : 2] === 5'b00000) begin // LOAD
                 memory_operation = 0;
-                memory_address = source_1_register + immediate_i;
+                memory_address = source_1_register + immediate;
 
                 memory_enable = 1;
                 @(posedge memory_ready);
 
                 if (function_3 === 3'b000) begin // LB
-                    $display("lb x%0d, %0d(x%0d)", destination_register_index, $signed(immediate_i), source_1_register_index);
+                    $display("lb x%0d, %0d(x%0d)", destination_register_index, $signed(immediate), source_1_register_index);
 
                     set_destination_register({{25{memory_data_in[7]}}, memory_data_in[6 : 0]});
                 end else if (function_3 === 3'b001) begin // LH
-                    $display("lh x%0d, %0d(x%0d)", destination_register_index, $signed(immediate_i), source_1_register_index);
+                    $display("lh x%0d, %0d(x%0d)", destination_register_index, $signed(immediate), source_1_register_index);
 
                     set_destination_register({{17{memory_data_in[15]}}, memory_data_in[14 : 0]});
                 end else if (function_3 === 3'b010) begin // LW
-                    $display("lw x%0d, %0d(x%0d)", destination_register_index, $signed(immediate_i), source_1_register_index);
+                    $display("lw x%0d, %0d(x%0d)", destination_register_index, $signed(immediate), source_1_register_index);
 
                     set_destination_register(memory_data_in);
                 end else if (function_3 === 3'b100) begin // LBU
-                    $display("lbu x%0d, %0d(x%0d)", destination_register_index, $signed(immediate_i), source_1_register_index);
+                    $display("lbu x%0d, %0d(x%0d)", destination_register_index, $signed(immediate), source_1_register_index);
 
                     set_destination_register({24'b0, memory_data_in[7 : 0]});
                 end else if (function_3 === 3'b101) begin // LWU
-                    $display("lhu x%0d, %0d(x%0d)", destination_register_index, $signed(immediate_i), source_1_register_index);
+                    $display("lhu x%0d, %0d(x%0d)", destination_register_index, $signed(immediate), source_1_register_index);
 
                     set_destination_register({16'b0, memory_data_in[15 : 0]});
                 end
@@ -294,22 +294,22 @@ module CPU(
                 program_counter += 4;
             end else if (opcode[6 : 2] === 5'b01000) begin // STORE
                 memory_operation = 1;
-                memory_address = source_1_register + immediate_s;
+                memory_address = source_1_register + immediate_store;
 
                 if (function_3 === 3'b000) begin // SB
-                    $display("sb x%0d, %0d(x%0d)", source_2_register_index, $signed(immediate_i), source_1_register_index);
+                    $display("sb x%0d, %0d(x%0d)", source_2_register_index, $signed(immediate), source_1_register_index);
 
                     memory_data_size = 0;
 
                     memory_data_out[7 : 0] = source_2_register[7 : 0];
                 end else if (function_3 === 3'b001) begin // SH
-                    $display("sh x%0d, %0d(x%0d)", source_2_register_index, $signed(immediate_i), source_1_register_index);
+                    $display("sh x%0d, %0d(x%0d)", source_2_register_index, $signed(immediate), source_1_register_index);
 
                     memory_data_size = 1;
 
                     memory_data_out[15 : 0] = source_2_register[15 : 0];
                 end else if (function_3 === 3'b010) begin // SW
-                    $display("sw x%0d, %0d(x%0d)", source_2_register_index, $signed(immediate_i), source_1_register_index);
+                    $display("sw x%0d, %0d(x%0d)", source_2_register_index, $signed(immediate), source_1_register_index);
 
                     memory_data_size = 2;
 
