@@ -19,6 +19,8 @@ module Testbench;
         cpu.registers[2] = ram_size - 1; // Set stack pointer to end of RAM
     end
 
+    reg reset = 0;
+
     wire [31 : 0]memory_address;
     reg [31 : 0]memory_data_in = 0;
     wire [31 : 0]memory_data_out;
@@ -27,7 +29,7 @@ module Testbench;
     wire memory_operation;
     reg memory_ready = 0;
 
-    CPU cpu(clock, memory_address, memory_data_in, memory_data_out, memory_data_size, memory_enable, memory_operation, memory_ready);
+    CPU cpu(clock, reset, memory_address, memory_data_in, memory_data_out, memory_data_size, memory_enable, memory_operation, memory_ready);
 
     always @(posedge(memory_enable)) begin
         if (memory_operation == 0) begin
@@ -72,6 +74,9 @@ module Testbench;
     end
 
     initial begin
+        #1 reset = 1;
+        #1 reset = 0;
+
         forever begin
             $display("Program Counter: %0d", cpu.program_counter);
             #1 clock = 1;
