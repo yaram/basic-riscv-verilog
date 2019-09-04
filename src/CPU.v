@@ -43,25 +43,13 @@ module CPU(
         end
     endtask
 
-    integer i;
-
     always @(posedge clock or posedge reset) begin
         if (reset) begin
             $display("Reset");
 
-            memory_address = 0;
-            memory_data_out = 0;
-            memory_data_size = 0;
             memory_enable = 0;
-            memory_operation = 0;
-
-            for (i = 0; i < 32 ; i = i + 1) begin
-                registers[i] = 0;
-            end
 
             program_counter = 0;
-
-            instruction = 0;
 
             stage = 0;
         end else begin
