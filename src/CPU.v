@@ -287,7 +287,7 @@ module CPU(
                     end
 
                     5'b11011 : begin // JALR
-                        $display("jalr x%0d, x%0d, %0d", destination_register_index, source_1_register_index, $signed(immediate_jump));
+                        $display("jalr x%0d, x%0d, %0d", destination_register_index, source_1_register_index, $signed(immediate));
 
                         set_destination_register(program_counter + 4);
 
