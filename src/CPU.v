@@ -147,7 +147,7 @@ module CPU(
                                         default : $display("Unknown instruction %0d", instruction);
                                     endcase
 
-                                    program_counter += 4;
+                                    program_counter = program_counter + 4;
                                     stage = 0;
                                 end
 
@@ -224,14 +224,14 @@ module CPU(
                                         default : $display("Unknown instruction %0d", instruction);
                                     endcase
 
-                                    program_counter += 4;
+                                    program_counter = program_counter + 4;
                                     stage = 0;
                                 end
 
                                 5'b00101 : begin // AUIPC
                                     $display("auipc x%0d, %0d", destination_register_index, immediate_upper);
 
-                                    program_counter += immediate_upper;
+                                    program_counter = program_counter + immediate_upper;
 
                                     set_destination_register(program_counter);
 
@@ -243,7 +243,7 @@ module CPU(
 
                                     set_destination_register(immediate_upper);
 
-                                    program_counter += 4;
+                                    program_counter = program_counter + 4;
                                     stage = 0;
                                 end
 
@@ -251,49 +251,49 @@ module CPU(
                                     case (function_3)
                                         3'b000 : begin // BEQ
                                             if (source_1_register === source_2_register) begin
-                                                program_counter += immediate_branch;
+                                                program_counter = program_counter + immediate_branch;
                                             end else begin
-                                                program_counter += 4;
+                                                program_counter = program_counter + 4;
                                             end
                                         end
 
                                         3'b001 : begin // BNE
                                             if (source_1_register != source_2_register) begin
-                                                program_counter += immediate_branch;
+                                                program_counter = program_counter + immediate_branch;
                                             end else begin
-                                                program_counter += 4;
+                                                program_counter = program_counter + 4;
                                             end
                                         end
 
                                         3'b100 : begin // BLT
                                             if ($signed(source_1_register) < $signed(source_2_register)) begin
-                                                program_counter += immediate_branch;
+                                                program_counter = program_counter + immediate_branch;
                                             end else begin
-                                                program_counter += 4;
+                                                program_counter = program_counter + 4;
                                             end
                                         end
 
                                         3'b101 : begin // BGE
                                             if ($signed(source_1_register) >= $signed(source_2_register)) begin
-                                                program_counter += immediate_branch;
+                                                program_counter = program_counter + immediate_branch;
                                             end else begin
-                                                program_counter += 4;
+                                                program_counter = program_counter + 4;
                                             end
                                         end
 
                                         3'b110 : begin // BLTU
                                             if (source_1_register < source_2_register) begin
-                                                program_counter += immediate_branch;
+                                                program_counter = program_counter + immediate_branch;
                                             end else begin
-                                                program_counter += 4;
+                                                program_counter = program_counter + 4;
                                             end
                                         end
 
                                         3'b111 : begin // BGEU
                                             if (source_1_register >= source_2_register) begin
-                                                program_counter += immediate_branch;
+                                                program_counter = program_counter + immediate_branch;
                                             end else begin
-                                                program_counter += 4;
+                                                program_counter = program_counter + 4;
                                             end
                                         end
 
@@ -308,7 +308,7 @@ module CPU(
 
                                     set_destination_register(program_counter + 4);
 
-                                    program_counter += immediate_jump;
+                                    program_counter = program_counter + immediate_jump;
                                     stage = 0;
                                 end
 
@@ -381,7 +381,7 @@ module CPU(
                                         default : $display("Unknown instruction %0d", instruction);
                                     endcase
 
-                                    program_counter += 4;
+                                    program_counter = program_counter + 4;
                                     stage = 0;
                                 end
 
@@ -391,32 +391,32 @@ module CPU(
                                             if (instruction[20] === 0) begin // ECALL
                                                 
                                             end else begin // EBREAK
-                                                program_counter += 4;
+                                                program_counter = program_counter + 4;
                                             end
                                         end
 
                                         3'b001 : begin // CSRRW
-                                            program_counter += 4;
+                                            program_counter = program_counter + 4;
                                         end
 
                                         3'b010 : begin // CSRRS
-                                            program_counter += 4;
+                                            program_counter = program_counter + 4;
                                         end
 
                                         3'b011 : begin // CSRRC
-                                            program_counter += 4;
+                                            program_counter = program_counter + 4;
                                         end
 
                                         3'b101 : begin // CSRRWI
-                                            program_counter += 4;
+                                            program_counter = program_counter + 4;
                                         end
 
                                         3'b110 : begin // CSRRSI
-                                            program_counter += 4;
+                                            program_counter = program_counter + 4;
                                         end
 
                                         3'b111 : begin // CSRRCI
-                                            program_counter += 4;
+                                            program_counter = program_counter + 4;
                                         end
 
                                         default : $display("Unknown instruction %0d", instruction);
@@ -478,7 +478,7 @@ module CPU(
 
                     memory_enable = 0;
 
-                    program_counter += 4;
+                    program_counter = program_counter + 4;
 
                     stage = 0;
                 end
