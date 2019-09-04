@@ -39,7 +39,7 @@ module CPU(
     wire [31 : 0]immediate_upper = {instruction[31 : 12], 12'b0};
     wire [31 : 0]immediate_jump = {{12{instruction[31]}}, instruction[19 : 12], instruction[20], instruction[30 : 21], 1'b0};
 
-    integer stage = 0;
+    reg [1 : 0]stage = 0;
 
     task set_destination_register(
         input [31 : 0]value
