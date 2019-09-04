@@ -3,9 +3,9 @@
 .global entry
 entry:
     lui a0, %hi(test)
-    addi a0, a0, %lo(test)
+    addi a0, x0, %lo(test)
 
-    addi a1, a1, 10
+    addi a1, x0, 10
     
     sb a1, 0(a0)
 
