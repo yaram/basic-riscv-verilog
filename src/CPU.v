@@ -9,7 +9,7 @@ module CPU(
     output reg memory_operation,
     input wire memory_ready
 );
-    reg [31 : 0]registers[0 : 31];
+    reg [31 : 0]registers[0 : 30];
 
     reg [31 : 0]program_counter;
 
@@ -24,8 +24,8 @@ module CPU(
     wire [4 : 0]source_2_register_index = instruction[24 : 20];
     wire [4 : 0]destination_register_index = instruction[11 : 7];
 
-    wire [31 : 0]source_1_register = registers[source_1_register_index];
-    wire [31 : 0]source_2_register = registers[source_2_register_index];
+    wire [31 : 0]source_1_register = source_1_register_index == 0 ? 0 : registers[source_1_register_index];
+    wire [31 : 0]source_2_register = source_2_register_index == 0 ? 0 : registers[source_2_register_index];
 
     wire [31 : 0]immediate = {{21{instruction[31]}}, instruction[30 : 20]};
     wire [31 : 0]immediate_store = {{21{instruction[31]}}, instruction[30 : 25], instruction[11 : 7]};
@@ -39,7 +39,7 @@ module CPU(
         input [31 : 0]value
     );
         if (destination_register_index != 0) begin
-            registers[destination_register_index] = value;
+            registers[destination_register_index - 1] = value;
         end
     endtask
 
