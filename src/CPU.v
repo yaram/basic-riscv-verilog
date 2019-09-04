@@ -291,7 +291,7 @@ module CPU(
 
                         set_destination_register(program_counter + 4);
 
-                        program_counter += program_counter + immediate + source_1_register;
+                        program_counter = program_counter + immediate + source_1_register;
                         program_counter[0] = 0;
                     end
 
