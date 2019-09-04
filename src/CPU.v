@@ -348,7 +348,7 @@ module CPU(
 
                         case (function_3)
                             3'b000 : begin // SB
-                                $display("sb x%0d, %0d(x%0d)", source_2_register_index, $signed(immediate), source_1_register_index);
+                                $display("sb x%0d, %0d(x%0d)", source_2_register_index, $signed(immediate_store), source_1_register_index);
 
                                 memory_data_size = 0;
 
@@ -356,7 +356,7 @@ module CPU(
                             end
 
                             3'b001 : begin // SH
-                                $display("sh x%0d, %0d(x%0d)", source_2_register_index, $signed(immediate), source_1_register_index);
+                                $display("sh x%0d, %0d(x%0d)", source_2_register_index, $signed(immediate_store), source_1_register_index);
 
                                 memory_data_size = 1;
 
@@ -364,7 +364,7 @@ module CPU(
                             end
 
                             3'b010 : begin // SW
-                                $display("sw x%0d, %0d(x%0d)", source_2_register_index, $signed(immediate), source_1_register_index);
+                                $display("sw x%0d, %0d(x%0d)", source_2_register_index, $signed(immediate_store), source_1_register_index);
 
                                 memory_data_size = 2;
 
