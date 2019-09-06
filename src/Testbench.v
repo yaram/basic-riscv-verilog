@@ -78,7 +78,6 @@ module Testbench;
         #1 reset = 0;
 
         forever begin
-            $display("Program Counter: %0d", cpu.program_counter);
             #1 clock = 1;
             #1 clock = 0;
         end
