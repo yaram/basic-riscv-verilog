@@ -7,16 +7,8 @@ module Testbench;
 
     reg [7 : 0]ram[0 : ram_size];
 
-    integer i;
-
     initial begin
-        for(i = 0; i < ram_size; i = i + 1) begin
-            ram[i] = 0;
-        end
-
         $readmemh("build/rom.hex", ram);
-
-        cpu.registers[2] = ram_size - 1; // Set stack pointer to end of RAM
     end
 
     reg reset = 0;
