@@ -346,7 +346,7 @@ module CPU(
 
                                 set_destination_register(instruction_program_counter + 4);
 
-                                load_stage_program_counter = instruction_program_counter + immediate + source_1_register;
+                                load_stage_program_counter = immediate + source_1_register;
                                 load_stage_program_counter[0] = 0;
                                 
                                 load_stage_canceling <= 1;
