@@ -260,10 +260,6 @@ module CPU(
                             5'b00101 : begin // AUIPC
                                 $display("auipc x%0d, %0d", destination_register_index, immediate_upper);
 
-                                load_stage_program_counter <= instruction_program_counter + immediate_upper;
-
-                                load_stage_canceling <= 1;
-
                                 set_destination_register(instruction_program_counter + immediate_upper);
 
                                 load_stage_loaded <= 0;
