@@ -329,7 +329,7 @@ module CPU(
                                 load_stage_loaded <= 0;
                             end
 
-                            5'b11001 : begin // JAL
+                            5'b11011 : begin // JAL
                                 $display("jal x%0d, %0d", destination_register_index, $signed(immediate_jump));
 
                                 set_destination_register(instruction_program_counter + 4);
@@ -341,7 +341,7 @@ module CPU(
                                 load_stage_loaded <= 0;
                             end
 
-                            5'b11011 : begin // JALR
+                            5'b11001 : begin // JALR
                                 $display("jalr x%0d, x%0d, %0d", destination_register_index, source_1_register_index, $signed(immediate));
 
                                 set_destination_register(instruction_program_counter + 4);
