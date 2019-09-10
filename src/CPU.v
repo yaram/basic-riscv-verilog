@@ -538,7 +538,27 @@ module CPU(
                 $display("Memory Operation End");
 
                 if (memory_stage_operation == 1 && memory_stage_register_index != 0) begin
-                    registers[memory_stage_register_index - 1] <= memory_data_in;
+                    case (memory_stage_size)
+                        0: begin
+                            if (memory_stage_sign_extend) begin
+                                registers[memory_stage_register_index - 1] <= {{26{memory_data_in[7]}}, memory_data_in[6 : 0]};
+                            end else begin
+                                registers[memory_stage_register_index - 1] <= {25'b0, memory_data_in[7 : 0]};
+                            end
+                        end
+
+                        1: begin
+                            if (memory_stage_sign_extend) begin
+                                registers[memory_stage_register_index - 1] <= {{16{memory_data_in[15]}}, memory_data_in[14 : 0]};
+                            end else begin
+                                registers[memory_stage_register_index - 1] <= {15'b0, memory_data_in[15 : 0]};
+                            end
+                        end
+
+                        2: begin
+                            registers[memory_stage_register_index - 1] <= memory_data_in;
+                        end
+                    endcase
                 end
 
                 memory_stage_operation <= 0;
