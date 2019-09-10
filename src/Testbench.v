@@ -63,6 +63,8 @@ module Testbench;
                     ram[memory_address + 2] = memory_data_out[23 : 16];
                     ram[memory_address + 3] = memory_data_out[31 : 24];
                 end
+            end else if (memory_address == 32'hFFFFFF) begin
+                $display("Debug Print: %d", memory_data_out[7 : 0]);
             end
 
             memory_ready = 1;
