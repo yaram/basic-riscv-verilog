@@ -276,6 +276,8 @@ module CPU(
                             5'b11000 : begin // BRANCH
                                 case (function_3)
                                     3'b000 : begin // BEQ
+                                        $display("beq x%0d, x%0d, %0d", source_1_register_index, source_2_register_index, immediate_branch);
+
                                         if (source_1_register === source_2_register) begin
                                             load_stage_program_counter <= instruction_program_counter + immediate_branch;
 
@@ -284,6 +286,8 @@ module CPU(
                                     end
 
                                     3'b001 : begin // BNE
+                                        $display("bne x%0d, x%0d, %0d", source_1_register_index, source_2_register_index, immediate_branch);
+
                                         if (source_1_register != source_2_register) begin
                                             load_stage_program_counter <= instruction_program_counter + immediate_branch;
 
@@ -292,6 +296,8 @@ module CPU(
                                     end
 
                                     3'b100 : begin // BLT
+                                        $display("blt x%0d, x%0d, %0d", source_1_register_index, source_2_register_index, immediate_branch);
+                                        
                                         if ($signed(source_1_register) < $signed(source_2_register)) begin
                                             load_stage_program_counter <= instruction_program_counter + immediate_branch;
 
@@ -300,6 +306,8 @@ module CPU(
                                     end
 
                                     3'b101 : begin // BGE
+                                        $display("bge x%0d, x%0d, %0d", source_1_register_index, source_2_register_index, immediate_branch);
+                                        
                                         if ($signed(source_1_register) >= $signed(source_2_register)) begin
                                             load_stage_program_counter <= instruction_program_counter + immediate_branch;
 
@@ -308,6 +316,8 @@ module CPU(
                                     end
 
                                     3'b110 : begin // BLTU
+                                        $display("bltu x%0d, x%0d, %0d", source_1_register_index, source_2_register_index, immediate_branch);
+                                        
                                         if (source_1_register < source_2_register) begin
                                             load_stage_program_counter <= instruction_program_counter + immediate_branch;
 
@@ -316,6 +326,8 @@ module CPU(
                                     end
 
                                     3'b111 : begin // BGEU
+                                        $display("bgeu x%0d, x%0d, %0d", source_1_register_index, source_2_register_index, immediate_branch);
+                                        
                                         if (source_1_register >= source_2_register) begin
                                             load_stage_program_counter <= instruction_program_counter + immediate_branch;
 
