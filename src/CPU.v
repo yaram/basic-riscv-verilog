@@ -73,10 +73,6 @@ module CPU(
         end else begin
             // Instruction Load
 
-            if (instruction_load_program_counter >= 30) begin
-                $finish();
-            end
-
             if (!memory_ready && !instruction_load_waiting) begin
                 $display("Instruction Load Begin");
 
