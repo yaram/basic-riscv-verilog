@@ -35,7 +35,9 @@ module CPU(
     parameter alu_count = 4;
     parameter alu_index_size = 2;
 
+    reg register_busy_states[0 : 30];
     reg [alu_index_size : 0]register_alu_indices[0 : 30];
+    reg [31 : 0]register_values[0 : 30];
 
     reg [4 : 0]alu_operations[0 : alu_count - 1];
     reg alu_occupied_states[0 : alu_count - 1];
@@ -64,6 +66,10 @@ module CPU(
             instruction_load_waiting <= 0;
             instruction_load_loaded <= 0;
             instruction_load_program_counter <= 0;
+
+            for (i = 0; i < 31; i = i + 1) begin
+                register_busy_states[i] <= 0;
+            end
 
             for (i = 0; i < alu_count; i = i + 1) begin
                 alu_occupied_states[i] <= 0;
@@ -122,14 +128,27 @@ module CPU(
                                         alu_source_1_loaded_states[unoccupied_alu_index] <= 1;
                                         alu_source_1_values[unoccupied_alu_index] <= 0;
                                     end else begin
-                                        alu_source_1_loaded_states[unoccupied_alu_index] <= 0;
-                                        alu_source_1_indices[unoccupied_alu_index] <= register_alu_indices[source_1_register_index + 1];
+                                        if (register_busy_states[source_1_register_index - 1]) begin
+                                            if (bus_asserted && bus_source == register_alu_indices[source_1_register_index - 1]) begin
+                                                alu_source_1_loaded_states[unoccupied_alu_index] <= 1;
+                                                alu_source_1_values[unoccupied_alu_index] <= bus_value;
+                                            end else begin
+                                                alu_source_1_loaded_states[unoccupied_alu_index] <= 0;
+                                                alu_source_1_indices[unoccupied_alu_index] <= register_alu_indices[source_1_register_index - 1];
+                                            end
+                                        end else begin
+                                            alu_source_1_loaded_states[unoccupied_alu_index] <= 1;
+                                            alu_source_1_values[unoccupied_alu_index] <= register_values[source_1_register_index - 1];
+                                        end
                                     end
 
                                     alu_source_2_loaded_states[unoccupied_alu_index] <= 1;
                                     alu_source_2_values[unoccupied_alu_index] <= immediate;
 
-                                    register_alu_indices[destination_register_index] <= unoccupied_alu_index;
+                                    if (destination_register_index != 0) begin
+                                        register_busy_states[destination_register_index - 1] <= 1;
+                                        register_alu_indices[destination_register_index - 1] <= unoccupied_alu_index;
+                                    end
 
                                     case (function_3)
                                         3'b000 : begin // ADDI
@@ -195,19 +214,42 @@ module CPU(
                                         alu_source_1_loaded_states[unoccupied_alu_index] <= 1;
                                         alu_source_1_values[unoccupied_alu_index] <= 0;
                                     end else begin
-                                        alu_source_1_loaded_states[unoccupied_alu_index] <= 0;
-                                        alu_source_1_indices[unoccupied_alu_index] <= register_alu_indices[source_1_register_index + 1];
+                                        if (register_busy_states[source_1_register_index - 1]) begin
+                                            if (bus_asserted && bus_source == register_alu_indices[source_1_register_index - 1]) begin
+                                                alu_source_1_loaded_states[unoccupied_alu_index] <= 1;
+                                                alu_source_1_values[unoccupied_alu_index] <= bus_value;
+                                            end else begin
+                                                alu_source_1_loaded_states[unoccupied_alu_index] <= 0;
+                                                alu_source_1_indices[unoccupied_alu_index] <= register_alu_indices[source_1_register_index - 1];
+                                            end
+                                        end else begin
+                                            alu_source_1_loaded_states[unoccupied_alu_index] <= 1;
+                                            alu_source_1_values[unoccupied_alu_index] <= register_values[source_1_register_index - 1];
+                                        end
                                     end
 
                                     if (source_2_register_index == 0) begin
                                         alu_source_2_loaded_states[unoccupied_alu_index] <= 1;
                                         alu_source_2_values[unoccupied_alu_index] <= 0;
                                     end else begin
-                                        alu_source_2_loaded_states[unoccupied_alu_index] <= 0;
-                                        alu_source_2_indices[unoccupied_alu_index] <= register_alu_indices[source_2_register_index + 1];
+                                        if (register_busy_states[source_2_register_index - 1]) begin
+                                            if (bus_asserted && bus_source == register_alu_indices[source_2_register_index - 1]) begin
+                                                alu_source_2_loaded_states[unoccupied_alu_index] <= 1;
+                                                alu_source_2_values[unoccupied_alu_index] <= bus_value;
+                                            end else begin
+                                                alu_source_2_loaded_states[unoccupied_alu_index] <= 0;
+                                                alu_source_2_indices[unoccupied_alu_index] <= register_alu_indices[source_2_register_index - 1];
+                                            end
+                                        end else begin
+                                            alu_source_2_loaded_states[unoccupied_alu_index] <= 1;
+                                            alu_source_2_values[unoccupied_alu_index] <= register_values[source_2_register_index - 1];
+                                        end
                                     end
 
-                                    register_alu_indices[destination_register_index] <= unoccupied_alu_index;
+                                    if (destination_register_index != 0) begin
+                                        register_busy_states[destination_register_index - 1] <= 1;
+                                        register_alu_indices[destination_register_index - 1] <= unoccupied_alu_index;
+                                    end
 
                                     case (function_3)
                                         3'b000 : begin
@@ -285,6 +327,13 @@ module CPU(
 
             // Instruction Execution (ALUs)
 
+            for (i = 0; i < 31; i = i + 1) begin
+                if (register_busy_states[i] && bus_asserted && bus_source == register_alu_indices[i]) begin
+                    register_busy_states[i] <= 0;
+                    register_values[i] <= bus_value;
+                end
+            end
+
             for (i = 0; i < alu_count; i = i + 1) begin
                 if (alu_occupied_states[i]) begin
                     if (!alu_source_1_loaded_states[i] && bus_source == alu_source_1_indices[i]) begin
@@ -299,12 +348,12 @@ module CPU(
 
                     if (bus_asserted && bus_source == i) begin
                         bus_asserted <= 0;
+                        alu_occupied_states[i] <= 0;
                     end
 
                     if (alu_source_1_loaded_states[i] && alu_source_2_loaded_states[i] && !bus_asserted) begin
                         bus_source = i;
                         bus_asserted = 1;
-                        alu_occupied_states[i] <= 0;
 
                         case (alu_operations[i])
                             0 : begin
