@@ -111,14 +111,11 @@ module CPU(
             if (instruction_load_canceling) begin
                 if (instruction_load_waiting) begin
                     if (memory_ready) begin
-                        if (memory_enable) begin
-                            memory_enable <= 0;
-                        end
-                    end else begin
+                        memory_enable <= 0;
+
+                        instruction_load_waiting <= 0;
                         instruction_load_canceling <= 0;
                     end
-
-                    instruction_load_waiting <= 0;
                 end else begin
                     instruction_load_canceling <= 0;
                 end
