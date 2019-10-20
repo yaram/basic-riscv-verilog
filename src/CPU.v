@@ -79,6 +79,8 @@ module CPU(
 
     reg bus_to_be_asserted;
 
+    reg [31 : 0]jalr_program_counter;
+
     always @(posedge clock or posedge reset) begin
         if (reset) begin
             $display("Reset");
@@ -503,12 +505,14 @@ module CPU(
                                     end
 
                                     if (source_1_register_index == 0) begin
-                                        instruction_load_program_counter = immediate;
+                                        jalr_program_counter = immediate;
                                     end else begin
-                                        instruction_load_program_counter = immediate + register_values[source_1_register_index - 1];
+                                        jalr_program_counter = immediate + register_values[source_1_register_index - 1];
                                     end
 
-                                    instruction_load_program_counter[0] = 0;
+                                    jalr_program_counter[0] = 0;
+
+                                    instruction_load_program_counter <= jalr_program_counter;
 
                                     instruction_load_canceling <= 1;
 
