@@ -540,7 +540,7 @@ module CPU(
                                             memory_unit_address_value <= register_values[source_1_register_index - 1];
                                         end
                                     end
-                                    memory_unit_address_offset = immediate;
+                                    memory_unit_address_offset <= immediate;
 
                                     if (destination_register_index != 0) begin
                                         register_busy_states[destination_register_index - 1] <= 1;
