@@ -344,6 +344,26 @@ module CPU(
                                 endcase
                             end
 
+                            5'b00101 : begin // AUIPC
+                                $display("auipc x%0d, %0d", destination_register_index, immediate_upper);
+
+                                if (destination_register_index != 0) begin
+                                    register_values[destination_register_index - 1] = instruction_program_counter + {immediate_upper, 12'b0};
+                                end
+
+                                instruction_load_loaded <= 0;
+                            end
+
+                            5'b01101 : begin // LUI
+                                $display("lui x%0d, %0d", destination_register_index, immediate_upper);
+
+                                if (destination_register_index != 0) begin
+                                    register_values[destination_register_index - 1] = {immediate_upper, 12'b0};
+                                end
+
+                                instruction_load_loaded <= 0;
+                            end
+
                             5'b11000 : begin // BRANCH
                                 if (
                                     (source_1_register_index == 0 || !register_busy_states[source_1_register_index - 1]) &&
