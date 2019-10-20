@@ -495,12 +495,12 @@ module CPU(
 
             for (i = 0; i < alu_count; i = i + 1) begin
                 if (alu_occupied_states[i]) begin
-                    if (!alu_source_1_loaded_states[i] && bus_source == alu_source_1_indices[i]) begin
+                    if (!alu_source_1_loaded_states[i] && bus_asserted && bus_source == alu_source_1_indices[i]) begin
                         alu_source_1_loaded_states[i] <= 1;
                         alu_source_1_values[i] <= bus_value;
                     end
 
-                    if (!alu_source_2_loaded_states[i] && bus_source == alu_source_2_indices[i]) begin
+                    if (!alu_source_2_loaded_states[i] && bus_asserted && bus_source == alu_source_2_indices[i]) begin
                         alu_source_2_loaded_states[i] <= 1;
                         alu_source_2_values[i] <= bus_value;
                     end
