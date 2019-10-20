@@ -103,6 +103,26 @@ module CPU(
 
             bus_asserted <= 0;
         end else begin
+            `ifdef VERBOSE
+            $display("PC: %h", instruction_load_program_counter);
+
+            for (i = 0; i < 31; i = i + 1) begin
+                $display("Reg %d: %d, %d, %d", i + 1, register_busy_states[i], register_station_indices[i], register_values[i]);
+            end
+
+            for (i = 0; i < alu_count; i = i + 1) begin
+                $display("ALU %d: %d", i, alu_occupied_states[i]);
+                $display("    Source 1: %d, %d, %d", i, alu_source_1_loaded_states[i], alu_source_1_indices[i], alu_source_1_values[i]);
+                $display("    Source 2: %d, %d, %d", i, alu_source_2_loaded_states[i], alu_source_2_indices[i], alu_source_2_values[i]);
+            end
+
+            $display("Memory: %d, %d, %d", memory_unit_occupied, memory_unit_operation, memory_unit_waiting);
+            $display("    Address: %d, %d, %h", memory_unit_address_loaded, memory_unit_address_index, memory_unit_address_value);
+            $display("    Value: %d, %d, %d", memory_unit_source_loaded, memory_unit_source_index, memory_unit_source_value);
+
+            $display("Bus: %d, %d, %d", bus_asserted, bus_source, bus_value);
+            `endif
+
             // Instruction Load
 
             if (!memory_ready && !instruction_load_waiting && !instruction_load_canceling && !memory_unit_occupied) begin

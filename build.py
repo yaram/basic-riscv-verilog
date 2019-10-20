@@ -15,4 +15,4 @@ build_directory = os.path.join(parent_directory, 'build')
 if not os.path.exists(build_directory):
     os.makedirs(build_directory)
 
-run_command('iverilog', '-Wall', '-g2001', '-o', os.path.join(build_directory, 'testbench'), os.path.join(source_directory, 'Testbench.v'))
+run_command('iverilog', '-Wall', '-g2001', '-D', 'VERBOSE', '-o', os.path.join(build_directory, 'testbench'), os.path.join(source_directory, 'Testbench.v'))
