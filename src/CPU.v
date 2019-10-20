@@ -348,7 +348,7 @@ module CPU(
                                 $display("auipc x%0d, %0d", destination_register_index, immediate_upper);
 
                                 if (destination_register_index != 0) begin
-                                    register_values[destination_register_index - 1] = instruction_program_counter + {immediate_upper, 12'b0};
+                                    register_values[destination_register_index - 1] <= instruction_program_counter + {immediate_upper, 12'b0};
                                 end
 
                                 instruction_load_loaded <= 0;
@@ -358,7 +358,7 @@ module CPU(
                                 $display("lui x%0d, %0d", destination_register_index, immediate_upper);
 
                                 if (destination_register_index != 0) begin
-                                    register_values[destination_register_index - 1] = {immediate_upper, 12'b0};
+                                    register_values[destination_register_index - 1] <= {immediate_upper, 12'b0};
                                 end
 
                                 instruction_load_loaded <= 0;
@@ -511,48 +511,48 @@ module CPU(
                     end
 
                     if (alu_source_1_loaded_states[i] && alu_source_2_loaded_states[i] && !bus_asserted) begin
-                        bus_source = i;
+                        bus_source <= i;
                         bus_asserted = 1;
 
                         case (alu_operations[i])
                             0 : begin
-                                bus_value = alu_source_1_values[i] + alu_source_2_values[i];
+                                bus_value <= alu_source_1_values[i] + alu_source_2_values[i];
                             end
 
                             1 : begin
-                                bus_value = alu_source_1_values[i] - alu_source_2_values[i];
+                                bus_value <= alu_source_1_values[i] - alu_source_2_values[i];
                             end
 
                             2 : begin
-                                bus_value = alu_source_1_values[i] | alu_source_2_values[i];
+                                bus_value <= alu_source_1_values[i] | alu_source_2_values[i];
                             end
 
                             3 : begin
-                                bus_value = alu_source_1_values[i] & alu_source_2_values[i];
+                                bus_value <= alu_source_1_values[i] & alu_source_2_values[i];
                             end
 
                             4 : begin
-                                bus_value = alu_source_1_values[i] ^ alu_source_2_values[i];
+                                bus_value <= alu_source_1_values[i] ^ alu_source_2_values[i];
                             end
 
                             5 : begin
-                                bus_value = alu_source_1_values[i] << alu_source_2_values[i];
+                                bus_value <= alu_source_1_values[i] << alu_source_2_values[i];
                             end
 
                             6 : begin
-                                bus_value = alu_source_1_values[i] >> alu_source_2_values[i];
+                                bus_value <= alu_source_1_values[i] >> alu_source_2_values[i];
                             end
 
                             7 : begin
-                                bus_value = alu_source_1_values[i] >>> alu_source_2_values[i];
+                                bus_value <= alu_source_1_values[i] >>> alu_source_2_values[i];
                             end
 
                             8 : begin
-                                bus_value = alu_source_1_values[i] < alu_source_2_values[i];
+                                bus_value <= alu_source_1_values[i] < alu_source_2_values[i];
                             end
 
                             9 : begin
-                                bus_value = $signed(alu_source_1_values[i]) < $signed(alu_source_2_values[i]);
+                                bus_value <= $signed(alu_source_1_values[i]) < $signed(alu_source_2_values[i]);
                             end
                         endcase
                     end
