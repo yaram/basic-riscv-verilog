@@ -9,6 +9,8 @@ module CPU(
     output reg memory_operation,
     input wire memory_ready
 );
+    reg halted;
+
     reg instruction_load_waiting;
     reg instruction_load_loaded;
     reg instruction_load_canceling;
@@ -87,6 +89,8 @@ module CPU(
 
             memory_enable <= 0;
 
+            halted <= 0;
+
             instruction_load_waiting <= 0;
             instruction_load_loaded <= 0;
             instruction_load_canceling <= 0;
@@ -104,7 +108,7 @@ module CPU(
             memory_unit_waiting <= 0;
 
             bus_asserted <= 0;
-        end else begin
+        end else if(!halted) begin
             `ifdef VERBOSE
             $display("PC: %h", instruction_load_program_counter);
 
@@ -262,7 +266,13 @@ module CPU(
                                                 end
                                             end
 
-                                            default : $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+                                            default : begin
+                                                $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+
+                                                halted <= 1;
+
+                                                $stop();
+                                            end
                                         endcase
                                     end
                                 end
@@ -380,7 +390,13 @@ module CPU(
                                                 end
                                             end
 
-                                            default : $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+                                            default : begin
+                                                $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+
+                                                halted <= 1;
+
+                                                $stop();
+                                            end
                                         endcase
                                     end
                                 end
@@ -472,7 +488,13 @@ module CPU(
                                             end
                                         end
 
-                                        default : $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+                                        default : begin
+                                            $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+
+                                            halted <= 1;
+
+                                            $stop();
+                                        end
                                     endcase
                                 end
                             end
@@ -653,16 +675,34 @@ module CPU(
                                             memory_unit_data_size <= 2;
                                         end
 
-                                        default : $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+                                        default : begin
+                                            $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+
+                                            halted <= 1;
+
+                                            $stop();
+                                        end
                                     endcase
                                 end
                             end
 
-                            default : $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+                            default : begin
+                                $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+
+                                halted <= 1;
+
+                                $stop();
+                            end
                         endcase
                     end
 
-                    default : $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+                    default : begin
+                        $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+
+                        halted <= 1;
+
+                        $stop();
+                    end
                 endcase
             end
 
