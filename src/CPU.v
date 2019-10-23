@@ -176,229 +176,329 @@ module CPU(
                     2'b11: begin // Base instruction set
                         case (opcode[6 : 2])
                             5'b00100 : begin // OP-IMM
-                                unoccupied_alu_found = 0;
+                                if (destination_register_index != 0) begin
+                                    unoccupied_alu_found = 0;
 
-                                for (i = 0; i < alu_count; i = i + 1) begin
-                                    if (!unoccupied_alu_found && !alu_occupied_states[i]) begin
-                                        unoccupied_alu_found = 1;
+                                    for (i = 0; i < alu_count; i = i + 1) begin
+                                        if (!unoccupied_alu_found && !alu_occupied_states[i]) begin
+                                            unoccupied_alu_found = 1;
 
-                                        instruction_load_loaded <= 0;
-                                        alu_occupied_states[i] <= 1;
+                                            instruction_load_loaded <= 0;
+                                            alu_occupied_states[i] <= 1;
 
-                                        if (source_1_register_index == 0) begin
-                                            alu_source_1_loaded_states[i] <= 1;
-                                            alu_source_1_values[i] <= 0;
-                                        end else begin
-                                            if (register_busy_states[source_1_register_index - 1]) begin
-                                                if (bus_asserted && bus_source == register_station_indices[source_1_register_index - 1]) begin
-                                                    alu_source_1_loaded_states[i] <= 1;
-                                                    alu_source_1_values[i] <= bus_value;
-                                                end else begin
-                                                    alu_source_1_loaded_states[i] <= 0;
-                                                    alu_source_1_indices[i] <= register_station_indices[source_1_register_index - 1];
-                                                end
-                                            end else begin
+                                            if (source_1_register_index == 0) begin
                                                 alu_source_1_loaded_states[i] <= 1;
-                                                alu_source_1_values[i] <= register_values[source_1_register_index - 1];
+                                                alu_source_1_values[i] <= 0;
+                                            end else begin
+                                                if (register_busy_states[source_1_register_index - 1]) begin
+                                                    if (bus_asserted && bus_source == register_station_indices[source_1_register_index - 1]) begin
+                                                        alu_source_1_loaded_states[i] <= 1;
+                                                        alu_source_1_values[i] <= bus_value;
+                                                    end else begin
+                                                        alu_source_1_loaded_states[i] <= 0;
+                                                        alu_source_1_indices[i] <= register_station_indices[source_1_register_index - 1];
+                                                    end
+                                                end else begin
+                                                    alu_source_1_loaded_states[i] <= 1;
+                                                    alu_source_1_values[i] <= register_values[source_1_register_index - 1];
+                                                end
                                             end
-                                        end
 
-                                        alu_source_2_loaded_states[i] <= 1;
-                                        alu_source_2_values[i] <= immediate;
+                                            alu_source_2_loaded_states[i] <= 1;
+                                            alu_source_2_values[i] <= immediate;
 
-                                        if (destination_register_index != 0) begin
                                             register_busy_states[destination_register_index - 1] <= 1;
                                             register_station_indices[destination_register_index - 1] <= i;
+
+                                            case (function_3)
+                                                3'b000 : begin // ADDI
+                                                    $display("addi x%0d, x%0d, %0d", destination_register_index, source_1_register_index, $signed(immediate));
+
+                                                    alu_operations[i] <= 0;
+                                                end
+
+                                                3'b010 : begin // SLTI
+                                                    $display("slti x%0d, x%0d, %0d", destination_register_index, source_1_register_index, $signed(immediate));
+
+                                                    alu_operations[i] <= 9;
+                                                end
+
+                                                3'b011 : begin // SLTIU
+                                                    $display("sltiu x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
+
+                                                    alu_operations[i] <= 8;
+                                                end
+
+                                                3'b100 : begin // XORI
+                                                    $display("xori x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
+
+                                                    alu_operations[i] <= 4;
+                                                end
+
+                                                3'b110 : begin // ORI
+                                                    $display("ori x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
+
+                                                    alu_operations[i] <= 2;
+                                                end
+
+                                                3'b111 : begin // ANDI
+                                                    $display("andi x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
+
+                                                    alu_operations[i] <= 3;
+                                                end
+
+                                                3'b001 : begin // SLLI
+                                                    $display("xori x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
+
+                                                    alu_operations[i] <= 5;
+                                                end
+
+                                                3'b101 : begin
+                                                    if (instruction[30] == 0) begin // SRLI
+                                                        $display("srli x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate[4 : 0]);
+
+                                                        alu_operations[i] <= 6;
+                                                    end else begin // SRAI
+                                                        $display("srai x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate[4 : 0]);
+
+                                                        alu_operations[i] <= 7;
+                                                    end
+                                                end
+
+                                                default : begin
+                                                    $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+
+                                                    halted <= 1;
+
+                                                    $stop();
+                                                end
+                                            endcase
+                                        end
+                                    end
+                                end else begin
+                                    instruction_load_loaded <= 0;
+
+                                    case (function_3)
+                                        3'b000 : begin // ADDI
+                                            $display("addi x%0d, x%0d, %0d", destination_register_index, source_1_register_index, $signed(immediate));
                                         end
 
-                                        case (function_3)
-                                            3'b000 : begin // ADDI
-                                                $display("addi x%0d, x%0d, %0d", destination_register_index, source_1_register_index, $signed(immediate));
+                                        3'b010 : begin // SLTI
+                                            $display("slti x%0d, x%0d, %0d", destination_register_index, source_1_register_index, $signed(immediate));
+                                        end
 
-                                                alu_operations[i] <= 0;
+                                        3'b011 : begin // SLTIU
+                                            $display("sltiu x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
+                                        end
+
+                                        3'b100 : begin // XORI
+                                            $display("xori x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
+                                        end
+
+                                        3'b110 : begin // ORI
+                                            $display("ori x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
+                                        end
+
+                                        3'b111 : begin // ANDI
+                                            $display("andi x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
+                                        end
+
+                                        3'b001 : begin // SLLI
+                                            $display("xori x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
+                                        end
+
+                                        3'b101 : begin
+                                            if (instruction[30] == 0) begin // SRLI
+                                                $display("srli x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate[4 : 0]);
+                                            end else begin // SRAI
+                                                $display("srai x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate[4 : 0]);
                                             end
+                                        end
 
-                                            3'b010 : begin // SLTI
-                                                $display("slti x%0d, x%0d, %0d", destination_register_index, source_1_register_index, $signed(immediate));
+                                        default : begin
+                                            $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
 
-                                                alu_operations[i] <= 9;
-                                            end
+                                            halted <= 1;
 
-                                            3'b011 : begin // SLTIU
-                                                $display("sltiu x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
-
-                                                alu_operations[i] <= 8;
-                                            end
-
-                                            3'b100 : begin // XORI
-                                                $display("xori x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
-
-                                                alu_operations[i] <= 4;
-                                            end
-
-                                            3'b110 : begin // ORI
-                                                $display("ori x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
-
-                                                alu_operations[i] <= 2;
-                                            end
-
-                                            3'b111 : begin // ANDI
-                                                $display("andi x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
-
-                                                alu_operations[i] <= 3;
-                                            end
-
-                                            3'b001 : begin // SLLI
-                                                $display("xori x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
-
-                                                alu_operations[i] <= 5;
-                                            end
-
-                                            3'b101 : begin
-                                                if (instruction[30] == 0) begin // SRLI
-                                                    $display("srli x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate[4 : 0]);
-
-                                                    alu_operations[i] <= 6;
-                                                end else begin // SRAI
-                                                    $display("srai x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate[4 : 0]);
-
-                                                    alu_operations[i] <= 7;
-                                                end
-                                            end
-
-                                            default : begin
-                                                $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
-
-                                                halted <= 1;
-
-                                                $stop();
-                                            end
-                                        endcase
-                                    end
+                                            $stop();
+                                        end
+                                    endcase
                                 end
                             end
 
                             5'b01100 : begin // OP
-                                for (i = 0; i < alu_count; i = i + 1) begin
-                                    unoccupied_alu_found = 0;
+                                if (destination_register_index != 0) begin
+                                    for (i = 0; i < alu_count; i = i + 1) begin
+                                        unoccupied_alu_found = 0;
 
-                                    if (!unoccupied_alu_found && !alu_occupied_states[i]) begin
-                                        unoccupied_alu_found = 1;
+                                        if (!unoccupied_alu_found && !alu_occupied_states[i]) begin
+                                            unoccupied_alu_found = 1;
 
-                                        instruction_load_loaded <= 0;
-                                        alu_occupied_states[i] <= 1;
+                                            instruction_load_loaded <= 0;
+                                            alu_occupied_states[i] <= 1;
 
-                                        if (source_1_register_index == 0) begin
-                                            alu_source_1_loaded_states[i] <= 1;
-                                            alu_source_1_values[i] <= 0;
-                                        end else begin
-                                            if (register_busy_states[source_1_register_index - 1]) begin
-                                                if (bus_asserted && bus_source == register_station_indices[source_1_register_index - 1]) begin
-                                                    alu_source_1_loaded_states[i] <= 1;
-                                                    alu_source_1_values[i] <= bus_value;
-                                                end else begin
-                                                    alu_source_1_loaded_states[i] <= 0;
-                                                    alu_source_1_indices[i] <= register_station_indices[source_1_register_index - 1];
-                                                end
-                                            end else begin
+                                            if (source_1_register_index == 0) begin
                                                 alu_source_1_loaded_states[i] <= 1;
-                                                alu_source_1_values[i] <= register_values[source_1_register_index - 1];
-                                            end
-                                        end
-
-                                        if (source_2_register_index == 0) begin
-                                            alu_source_2_loaded_states[i] <= 1;
-                                            alu_source_2_values[i] <= 0;
-                                        end else begin
-                                            if (register_busy_states[source_2_register_index - 1]) begin
-                                                if (bus_asserted && bus_source == register_station_indices[source_2_register_index - 1]) begin
-                                                    alu_source_2_loaded_states[i] <= 1;
-                                                    alu_source_2_values[i] <= bus_value;
-                                                end else begin
-                                                    alu_source_2_loaded_states[i] <= 0;
-                                                    alu_source_2_indices[i] <= register_station_indices[source_2_register_index - 1];
-                                                end
+                                                alu_source_1_values[i] <= 0;
                                             end else begin
-                                                alu_source_2_loaded_states[i] <= 1;
-                                                alu_source_2_values[i] <= register_values[source_2_register_index - 1];
+                                                if (register_busy_states[source_1_register_index - 1]) begin
+                                                    if (bus_asserted && bus_source == register_station_indices[source_1_register_index - 1]) begin
+                                                        alu_source_1_loaded_states[i] <= 1;
+                                                        alu_source_1_values[i] <= bus_value;
+                                                    end else begin
+                                                        alu_source_1_loaded_states[i] <= 0;
+                                                        alu_source_1_indices[i] <= register_station_indices[source_1_register_index - 1];
+                                                    end
+                                                end else begin
+                                                    alu_source_1_loaded_states[i] <= 1;
+                                                    alu_source_1_values[i] <= register_values[source_1_register_index - 1];
+                                                end
                                             end
-                                        end
 
-                                        if (destination_register_index != 0) begin
+                                            if (source_2_register_index == 0) begin
+                                                alu_source_2_loaded_states[i] <= 1;
+                                                alu_source_2_values[i] <= 0;
+                                            end else begin
+                                                if (register_busy_states[source_2_register_index - 1]) begin
+                                                    if (bus_asserted && bus_source == register_station_indices[source_2_register_index - 1]) begin
+                                                        alu_source_2_loaded_states[i] <= 1;
+                                                        alu_source_2_values[i] <= bus_value;
+                                                    end else begin
+                                                        alu_source_2_loaded_states[i] <= 0;
+                                                        alu_source_2_indices[i] <= register_station_indices[source_2_register_index - 1];
+                                                    end
+                                                end else begin
+                                                    alu_source_2_loaded_states[i] <= 1;
+                                                    alu_source_2_values[i] <= register_values[source_2_register_index - 1];
+                                                end
+                                            end
+
                                             register_busy_states[destination_register_index - 1] <= 1;
                                             register_station_indices[destination_register_index - 1] <= i;
+
+                                            case (function_3)
+                                                3'b000 : begin
+                                                    if (instruction[30] == 0) begin // ADD
+                                                        $display("add x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+
+                                                        alu_operations[i] <= 0;
+                                                    end else begin // SUB
+                                                        $display("add x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+
+                                                        alu_operations[i] <= 1;
+                                                    end
+                                                end
+
+                                                3'b010 : begin // SLT
+                                                    $display("slt x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+
+                                                    alu_operations[i] <= 9;
+                                                end
+
+                                                3'b011 : begin // SLTU
+                                                    $display("sltu x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+
+                                                    alu_operations[i] <= 8;
+                                                end
+
+                                                3'b100 : begin // XOR
+                                                    $display("xor x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+
+                                                    alu_operations[i] <= 4;
+                                                end
+
+                                                3'b110 : begin // OR
+                                                    $display("or x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+
+                                                    alu_operations[i] <= 2;
+                                                end
+
+                                                3'b111 : begin // AND
+                                                    $display("and x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+
+                                                    alu_operations[i] <= 3;
+                                                end
+
+                                                3'b001 : begin // SLL
+                                                    $display("sll x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+
+                                                    alu_operations[i] <= 5;
+                                                end
+
+                                                3'b101 : begin
+                                                    if (instruction[30] == 0) begin // SRL
+                                                        $display("srl x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+
+                                                        alu_operations[i] <= 6;
+                                                    end else begin // SRA
+                                                        $display("sra x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+
+                                                        alu_operations[i] <= 7;
+                                                    end
+                                                end
+
+                                                default : begin
+                                                    $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+
+                                                    halted <= 1;
+
+                                                    $stop();
+                                                end
+                                            endcase
+                                        end
+                                    end
+                                end else begin
+                                    instruction_load_loaded <= 0;
+
+                                    case (function_3)
+                                        3'b000 : begin
+                                            if (instruction[30] == 0) begin // ADD
+                                                $display("add x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                            end else begin // SUB
+                                                $display("add x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                            end
                                         end
 
-                                        case (function_3)
-                                            3'b000 : begin
-                                                if (instruction[30] == 0) begin // ADD
-                                                    $display("add x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                        3'b010 : begin // SLT
+                                            $display("slt x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                        end
 
-                                                    alu_operations[i] <= 0;
-                                                end else begin // SUB
-                                                    $display("add x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                        3'b011 : begin // SLTU
+                                            $display("sltu x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                        end
 
-                                                    alu_operations[i] <= 1;
-                                                end
+                                        3'b100 : begin // XOR
+                                            $display("xor x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                        end
+
+                                        3'b110 : begin // OR
+                                            $display("or x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                        end
+
+                                        3'b111 : begin // AND
+                                            $display("and x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                        end
+
+                                        3'b001 : begin // SLL
+                                            $display("sll x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                        end
+
+                                        3'b101 : begin
+                                            if (instruction[30] == 0) begin // SRL
+                                                $display("srl x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                            end else begin // SRA
+                                                $display("sra x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
                                             end
+                                        end
 
-                                            3'b010 : begin // SLT
-                                                $display("slt x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                        default : begin
+                                            $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
 
-                                                alu_operations[i] <= 9;
-                                            end
+                                            halted <= 1;
 
-                                            3'b011 : begin // SLTU
-                                                $display("sltu x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-
-                                                alu_operations[i] <= 8;
-                                            end
-
-                                            3'b100 : begin // XOR
-                                                $display("xor x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-
-                                                alu_operations[i] <= 4;
-                                            end
-
-                                            3'b110 : begin // OR
-                                                $display("or x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-
-                                                alu_operations[i] <= 2;
-                                            end
-
-                                            3'b111 : begin // AND
-                                                $display("and x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-
-                                                alu_operations[i] <= 3;
-                                            end
-
-                                            3'b001 : begin // SLL
-                                                $display("sll x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-
-                                                alu_operations[i] <= 5;
-                                            end
-
-                                            3'b101 : begin
-                                                if (instruction[30] == 0) begin // SRL
-                                                    $display("srl x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-
-                                                    alu_operations[i] <= 6;
-                                                end else begin // SRA
-                                                    $display("sra x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-
-                                                    alu_operations[i] <= 7;
-                                                end
-                                            end
-
-                                            default : begin
-                                                $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
-
-                                                halted <= 1;
-
-                                                $stop();
-                                            end
-                                        endcase
-                                    end
+                                            $stop();
+                                        end
+                                    endcase
                                 end
                             end
 
