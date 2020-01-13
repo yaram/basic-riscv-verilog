@@ -38,12 +38,12 @@ module CPU(
     wire [31 : 0]immediate_jump = {{12{instruction[31]}}, instruction[19 : 12], instruction[20], instruction[30 : 21], 1'b0};
 
     parameter alu_count = 4;
-    parameter alu_index_size = 2;
+    parameter alu_index_size = 2; // $bits(alu_count - 1)
 
     parameter memory_unit_count = 1;
 
     parameter station_count = alu_count + memory_unit_count;
-    parameter station_index_size = 3; // $bits(station_count)
+    parameter station_index_size = 3; // $bits(station_count - 1)
 
     reg register_busy_states[0 : 30];
     reg [station_index_size - 1 : 0]register_station_indices[0 : 30];
