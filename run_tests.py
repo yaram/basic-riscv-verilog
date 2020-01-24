@@ -44,7 +44,7 @@ for name in tests:
         '-march=rv32i',
         '-I{}'.format(os.path.join(parent_directory, 'tests', 'isa', 'macros', 'scalar')),
         '-I{}'.format(os.path.join(source_directory, 'tests')),
-        '-DTESTNUM=zero',
+        '-DTESTNUM=x31',
         '-c',
         '-o', os.path.join(build_directory, 'test.o'),
         os.path.join(source_directory, os.path.join(parent_directory, 'tests', 'isa', 'rv32ui', '{}.S'.format(name)))

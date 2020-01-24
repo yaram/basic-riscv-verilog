@@ -64,11 +64,11 @@ module Testbench;
                     ram[memory_address + 3] = memory_data_out[31 : 24];
                 end
             end else if (memory_address == 32'hFFFFFD) begin
-                $display("Test Passed");
+                $display("Test Passed: %d", memory_data_out[7 : 0]);
 
                 $stop();
             end else if (memory_address == 32'hFFFFFE) begin
-                $display("Test Failed");
+                $display("Test Failed: %d", memory_data_out[7 : 0]);
 
                 $stop();
             end else if (memory_address == 32'hFFFFFF) begin
