@@ -3,9 +3,10 @@
 import sys
 import os
 import subprocess
+import shutil
 
 def run_command(executable, *arguments):
-    subprocess.call([executable, *arguments], stdout=sys.stdout, stderr=sys.stderr, shell=True)
+    subprocess.call([executable, *arguments], stdout=sys.stdout, stderr=sys.stderr)
 
 parent_directory = os.path.dirname(os.path.realpath(__file__))
 
@@ -39,7 +40,7 @@ for name in tests:
     print('Running test {}... '.format(name), end='')
 
     run_command(
-        'clang',
+        shutil.which('clang'),
         '-target', 'riscv32-unknown-unknown-elf',
         '-march=rv32i',
         '-I{}'.format(os.path.join(parent_directory, 'tests', 'isa', 'macros', 'scalar')),
@@ -51,7 +52,7 @@ for name in tests:
     )
 
     run_command(
-        'ld.lld',
+        shutil.which('ld.lld'),
         '-T', os.path.join(source_directory, 'tests', 'linker.ld'),
         '-o', os.path.join(build_directory, 'test.elf'),
         '-e', '0x0',
@@ -60,7 +61,7 @@ for name in tests:
     )
 
     run_command(
-        'llvm-objcopy',
+        shutil.which('llvm-objcopy'),
         '--output-target=binary',
         os.path.join(build_directory, 'test.elf'),
         os.path.join(build_directory, 'test.bin')
@@ -74,7 +75,7 @@ for name in tests:
                 hex_file.write('%0.2X ' % byte)
 
     run_command(
-        'iverilog',
+        shutil.which('iverilog'),
         '-Wall',
         '-g2001',
         '-D', 'ROM_PATH="{}"'.format(os.path.join(build_directory, 'test.hex').replace('\\', '\\\\')),
@@ -82,12 +83,15 @@ for name in tests:
         os.path.join(source_directory, 'Testbench.v')
     )
 
-    output = subprocess.check_output(
-        ['vvp', '-n', os.path.join(build_directory, 'testbench')],
-        shell=True
-    )
+    try:
+        output = subprocess.check_output(
+            [shutil.which('vvp'), '-n', os.path.join(build_directory, 'testbench')],
+            timeout=5
+        )
 
-    if 'Test Passed' in str(output):
-        print('Passed')
-    else:
-        print('Failed')
+        if 'Test Passed' in output.decode('utf-8'):
+            print('Passed')
+        else:
+            print('Failed')
+    except:
+            print('Failed')
