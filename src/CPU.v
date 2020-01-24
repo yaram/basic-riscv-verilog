@@ -549,6 +549,8 @@ module CPU(
                                         end
 
                                         3'b100 : begin // BLT
+                                            $display("blt x%0d, x%0d, %0d", source_1_register_index, source_2_register_index, immediate_branch);
+
                                             if ($signed(source_1_register_value) < $signed(source_2_register_value)) begin
                                                 instruction_load_program_counter <= instruction_program_counter + immediate_branch;
 
