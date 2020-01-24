@@ -326,9 +326,9 @@ module CPU(
 
                             5'b01100 : begin // OP
                                 if (destination_register_index != 0) begin
-                                    for (i = 0; i < alu_count; i = i + 1) begin
-                                        unoccupied_alu_found = 0;
+                                    unoccupied_alu_found = 0;
 
+                                    for (i = 0; i < alu_count; i = i + 1) begin
                                         if (!unoccupied_alu_found && !alu_occupied_states[i]) begin
                                             unoccupied_alu_found = 1;
 
