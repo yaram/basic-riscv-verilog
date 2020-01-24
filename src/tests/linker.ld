@@ -4,12 +4,15 @@ SECTIONS {
     . = 0;
 
     .text : {
-        *(.text.entry)
         *(.text)
     }
 
     .data : {
         *(.data)
+    }
+
+    .rodata : {
+        *(.rodata)
     }
 
     .bss : {

@@ -8,7 +8,7 @@ module Testbench;
     reg [7 : 0]ram[0 : ram_size];
 
     initial begin
-        $readmemh("build/rom.hex", ram);
+        $readmemh(`ROM_PATH, ram);
     end
 
     reg reset = 0;
@@ -63,6 +63,14 @@ module Testbench;
                     ram[memory_address + 2] = memory_data_out[23 : 16];
                     ram[memory_address + 3] = memory_data_out[31 : 24];
                 end
+            end else if (memory_address == 32'hFFFFFD) begin
+                $display("Test Passed");
+
+                $stop();
+            end else if (memory_address == 32'hFFFFFE) begin
+                $display("Test Failed");
+
+                $stop();
             end else if (memory_address == 32'hFFFFFF) begin
                 $display("Debug Print: %d", memory_data_out[7 : 0]);
             end
