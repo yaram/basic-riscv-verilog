@@ -801,9 +801,7 @@ module CPU(
                 endcase
             end
 
-            bus_to_be_asserted = 0;
-
-            // Instruction Execution (ALUs)
+            // Register Loading
 
             for (i = 0; i < 31; i = i + 1) begin
                 if (register_busy_states[i] && bus_asserted && bus_source == register_station_indices[i]) begin
@@ -811,6 +809,10 @@ module CPU(
                     register_values[i] <= bus_value;
                 end
             end
+
+            // Instruction Execution (ALUs)
+
+            bus_to_be_asserted = 0;
 
             for (i = 0; i < alu_count; i = i + 1) begin
                 if (alu_occupied_states[i]) begin
