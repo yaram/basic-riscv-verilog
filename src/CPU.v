@@ -708,10 +708,10 @@ module CPU(
                                             memory_unit_signed <= 0;
                                         end
 
-                                        3'b101 : begin // LWU
+                                        3'b101 : begin // LHU
                                             $display("lhu x%0d, %0d(x%0d)", destination_register_index, $signed(immediate), source_1_register_index);
 
-                                            memory_unit_data_size <= 0;
+                                            memory_unit_data_size <= 1;
                                             memory_unit_signed <= 0;
                                         end
                                     endcase
