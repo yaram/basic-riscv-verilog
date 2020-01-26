@@ -893,15 +893,15 @@ module CPU(
                             end
 
                             5 : begin
-                                bus_value <= alu_source_1_values[i] << alu_source_2_values[i];
+                                bus_value <= alu_source_1_values[i] << alu_source_2_values[i][4 : 0];
                             end
 
                             6 : begin
-                                bus_value <= alu_source_1_values[i] >> alu_source_2_values[i];
+                                bus_value <= alu_source_1_values[i] >> alu_source_2_values[i][4 : 0];
                             end
 
                             7 : begin
-                                bus_value <= alu_source_1_values[i] >>> alu_source_2_values[i];
+                                bus_value <= $signed(alu_source_1_values[i]) >>> alu_source_2_values[i][4 : 0];
                             end
 
                             8 : begin
