@@ -964,17 +964,17 @@ module CPU(
                                 case (memory_unit_data_size)
                                     0: begin
                                         if (memory_unit_signed) begin
-                                            bus_value <= {{26{memory_data_in[7]}}, memory_data_in[6 : 0]};
+                                            bus_value <= {{25{memory_data_in[7]}}, memory_data_in[6 : 0]};
                                         end else begin
-                                            bus_value <= {25'b0, memory_data_in[7 : 0]};
+                                            bus_value <= {24'b0, memory_data_in[7 : 0]};
                                         end
                                     end
 
                                     1: begin
                                         if (memory_unit_signed) begin
-                                            bus_value <= {{16{memory_data_in[15]}}, memory_data_in[14 : 0]};
+                                            bus_value <= {{17{memory_data_in[15]}}, memory_data_in[14 : 0]};
                                         end else begin
-                                            bus_value <= {15'b0, memory_data_in[15 : 0]};
+                                            bus_value <= {16'b0, memory_data_in[15 : 0]};
                                         end
                                     end
 
