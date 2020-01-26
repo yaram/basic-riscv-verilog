@@ -116,8 +116,8 @@ module CPU(
 
             for (i = 0; i < alu_count; i = i + 1) begin
                 $display("ALU %d: %d", i, alu_occupied_states[i]);
-                $display("    Source 1: %d, %d, %d", i, alu_source_1_loaded_states[i], alu_source_1_indices[i], alu_source_1_values[i]);
-                $display("    Source 2: %d, %d, %d", i, alu_source_2_loaded_states[i], alu_source_2_indices[i], alu_source_2_values[i]);
+                $display("    Source 1: %d, %d, %d", alu_source_1_loaded_states[i], alu_source_1_indices[i], alu_source_1_values[i]);
+                $display("    Source 2: %d, %d, %d", alu_source_2_loaded_states[i], alu_source_2_indices[i], alu_source_2_values[i]);
             end
 
             $display("Memory: %d, %d, %d", memory_unit_occupied, memory_unit_operation, memory_unit_waiting);
