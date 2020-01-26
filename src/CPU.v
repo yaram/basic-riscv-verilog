@@ -795,6 +795,26 @@ module CPU(
                                 end
                             end
 
+                            5'b00011 : begin // MISC-MEM
+                                case (function_3)
+                                    3'b000 : begin // FENCE
+                                        instruction_load_loaded <= 0;
+                                    end
+
+                                    3'b001 : begin // FENCE.I
+                                        instruction_load_loaded <= 0;
+                                    end
+
+                                    default : begin
+                                        $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+
+                                        halted <= 1;
+
+                                        $stop();
+                                    end
+                                endcase
+                            end
+
                             default : begin
                                 $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
 
