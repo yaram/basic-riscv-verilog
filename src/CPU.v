@@ -81,6 +81,8 @@ module CPU(
 
     reg bus_to_be_asserted;
 
+    reg instruction_load_to_begin;
+
     always @(posedge clock or posedge reset) begin
         if (reset) begin
             $display("Reset");
@@ -129,6 +131,8 @@ module CPU(
 
             // Instruction Load
 
+            instruction_load_to_begin = 0;
+
             if (!memory_ready && !instruction_load_waiting && !instruction_load_canceling && !memory_unit_occupied) begin
                 $display("Instruction Load Begin");
 
@@ -139,6 +143,8 @@ module CPU(
                 memory_enable <= 1;
 
                 instruction_load_waiting <= 1;
+
+                instruction_load_to_begin = 1;
             end
 
             if (memory_ready && instruction_load_waiting && !instruction_load_loaded && !instruction_load_canceling) begin
@@ -531,7 +537,8 @@ module CPU(
                             5'b11000 : begin // BRANCH
                                 if (
                                     (source_1_register_index == 0 || !register_busy_states[source_1_register_index - 1]) &&
-                                    (source_2_register_index == 0 || !register_busy_states[source_2_register_index - 1])
+                                    (source_2_register_index == 0 || !register_busy_states[source_2_register_index - 1]) &&
+                                    !instruction_load_to_begin
                                 ) begin
                                     instruction_load_loaded <= 0;
 
@@ -608,7 +615,11 @@ module CPU(
                             end
 
                             5'b11011 : begin // JAL
-                                if (destination_register_index == 0 || !register_busy_states[destination_register_index - 1]) begin
+                                if (
+                                    (destination_register_index == 0 ||
+                                    !register_busy_states[destination_register_index - 1]) && 
+                                    !instruction_load_to_begin
+                                ) begin
                                     $display("jal x%0d, %0d", destination_register_index, $signed(immediate_jump));
 
                                     if (destination_register_index != 0) begin
@@ -626,7 +637,8 @@ module CPU(
                             5'b11001 : begin // JALR
                                 if (
                                     (destination_register_index == 0 || !register_busy_states[destination_register_index - 1]) &&
-                                    (source_1_register_index == 0 || !register_busy_states[source_1_register_index - 1])
+                                    (source_1_register_index == 0 || !register_busy_states[source_1_register_index - 1]) &&
+                                    !instruction_load_to_begin
                                 ) begin
                                     $display("jalr x%0d, x%0d, %0d", destination_register_index, source_1_register_index, $signed(immediate));
 
