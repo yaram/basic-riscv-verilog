@@ -1,5 +1,3 @@
-ENTRY(entry)
-
 SECTIONS {
     . = 0;
 
