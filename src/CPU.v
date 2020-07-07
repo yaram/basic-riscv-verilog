@@ -317,21 +317,41 @@ module CPU(
                                                     end
 
                                                     3'b001 : begin // SLLI
-                                                        $display("xori x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
+                                                        if (function_7 == 7'b0000000) begin
+                                                            $display("slli x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
 
-                                                        alu_operations[i] <= 5;
+                                                            alu_operations[i] <= 5;
+                                                        end else begin
+                                                            $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+
+                                                            halted <= 1;
+
+                                                            $stop();
+                                                        end
                                                     end
 
                                                     3'b101 : begin
-                                                        if (instruction[30] == 0) begin // SRLI
-                                                            $display("srli x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate[4 : 0]);
+                                                        case (function_7)
+                                                            7'b0000000: begin // SRLI
+                                                                $display("srli x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate[4 : 0]);
 
-                                                            alu_operations[i] <= 6;
-                                                        end else begin // SRAI
-                                                            $display("srai x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate[4 : 0]);
+                                                                alu_operations[i] <= 6;
+                                                            end
 
-                                                            alu_operations[i] <= 7;
-                                                        end
+                                                            7'b0100000: begin // SRAI
+                                                                $display("srai x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate[4 : 0]);
+
+                                                                alu_operations[i] <= 7;
+                                                            end
+
+                                                            default: begin
+                                                                $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+
+                                                                halted <= 1;
+
+                                                                $stop();
+                                                            end
+                                                        endcase
                                                     end
 
                                                     default : begin
@@ -374,15 +394,35 @@ module CPU(
                                         end
 
                                         3'b001 : begin // SLLI
-                                            $display("xori x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
+                                            if (function_7 == 7'b0000000) begin
+                                                $display("slli x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
+                                            end else begin
+                                                $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+
+                                                halted <= 1;
+
+                                                $stop();
+                                            end
                                         end
 
                                         3'b101 : begin
-                                            if (instruction[30] == 0) begin // SRLI
-                                                $display("srli x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate[4 : 0]);
-                                            end else begin // SRAI
-                                                $display("srai x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate[4 : 0]);
-                                            end
+                                            case (function_7)
+                                                7'b0000000: begin // SRLI
+                                                    $display("srli x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate[4 : 0]);
+                                                end
+
+                                                7'b0100000: begin // SRAI
+                                                    $display("srai x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate[4 : 0]);
+                                                end
+
+                                                default: begin
+                                                    $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+
+                                                    halted <= 1;
+
+                                                    $stop();
+                                                end
+                                            endcase
                                         end
 
                                         default : begin
@@ -610,68 +650,92 @@ module CPU(
                                                         register_busy_states[destination_register_index - 1] <= 1;
                                                         register_station_indices[destination_register_index - 1] <= first_alu_station + i;
 
-                                                        case (function_3)
-                                                            3'b000 : begin
-                                                                if (instruction[30] == 0) begin // ADD
-                                                                    $display("add x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                        case (function_7)
+                                                            7'b0000000: begin
+                                                                case (function_3)
+                                                                    3'b000: begin // ADD
+                                                                        $display("add x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
 
-                                                                    alu_operations[i] <= 0;
-                                                                end else begin // SUB
-                                                                    $display("add x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                                        alu_operations[i] <= 0;
+                                                                    end
 
-                                                                    alu_operations[i] <= 1;
-                                                                end
+                                                                    3'b001 : begin // SLL
+                                                                        $display("sll x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+
+                                                                        alu_operations[i] <= 5;
+                                                                    end
+
+                                                                    3'b010 : begin // SLT
+                                                                        $display("slt x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+
+                                                                        alu_operations[i] <= 9;
+                                                                    end
+
+                                                                    3'b011 : begin // SLTU
+                                                                        $display("sltu x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+
+                                                                        alu_operations[i] <= 8;
+                                                                    end
+
+                                                                    3'b100 : begin // XOR
+                                                                        $display("xor x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+
+                                                                        alu_operations[i] <= 4;
+                                                                    end
+
+                                                                    3'b101 : begin // SRL
+                                                                        $display("srl x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+
+                                                                        alu_operations[i] <= 6;
+                                                                    end
+
+                                                                    3'b110 : begin // OR
+                                                                        $display("or x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+
+                                                                        alu_operations[i] <= 2;
+                                                                    end
+
+                                                                    3'b111 : begin // AND
+                                                                        $display("and x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+
+                                                                        alu_operations[i] <= 3;
+                                                                    end
+
+                                                                    default: begin
+                                                                        $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+
+                                                                        halted <= 1;
+
+                                                                        $stop();
+                                                                    end
+                                                                endcase
                                                             end
 
-                                                            3'b010 : begin // SLT
-                                                                $display("slt x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                            7'b0100000: begin
+                                                                case (function_3)
+                                                                    3'b000: begin // SUB
+                                                                        $display("sub x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
 
-                                                                alu_operations[i] <= 9;
+                                                                        alu_operations[i] <= 1;
+                                                                    end
+
+                                                                    3'b101 : begin // SRA
+                                                                        $display("sra x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+
+                                                                        alu_operations[i] <= 7;
+                                                                    end
+
+                                                                    default: begin
+                                                                        $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+
+                                                                        halted <= 1;
+
+                                                                        $stop();
+                                                                    end
+                                                                endcase
                                                             end
 
-                                                            3'b011 : begin // SLTU
-                                                                $display("sltu x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-
-                                                                alu_operations[i] <= 8;
-                                                            end
-
-                                                            3'b100 : begin // XOR
-                                                                $display("xor x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-
-                                                                alu_operations[i] <= 4;
-                                                            end
-
-                                                            3'b110 : begin // OR
-                                                                $display("or x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-
-                                                                alu_operations[i] <= 2;
-                                                            end
-
-                                                            3'b111 : begin // AND
-                                                                $display("and x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-
-                                                                alu_operations[i] <= 3;
-                                                            end
-
-                                                            3'b001 : begin // SLL
-                                                                $display("sll x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-
-                                                                alu_operations[i] <= 5;
-                                                            end
-
-                                                            3'b101 : begin
-                                                                if (instruction[30] == 0) begin // SRL
-                                                                    $display("srl x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-
-                                                                    alu_operations[i] <= 6;
-                                                                end else begin // SRA
-                                                                    $display("sra x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-
-                                                                    alu_operations[i] <= 7;
-                                                                end
-                                                            end
-
-                                                            default : begin
+                                                            default: begin
                                                                 $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
 
                                                                 halted <= 1;
@@ -685,48 +749,72 @@ module CPU(
                                         end else begin
                                             instruction_load_loaded <= 0;
 
-                                            case (function_3)
-                                                3'b000 : begin
-                                                    if (instruction[30] == 0) begin // ADD
-                                                        $display("add x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                    end else begin // SUB
-                                                        $display("add x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                    end
+                                            case (function_7)
+                                                7'b0000000: begin
+                                                    case (function_3)
+                                                        3'b000: begin // ADD
+                                                            $display("add x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                        end
+
+                                                        3'b001 : begin // SLL
+                                                            $display("sll x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                        end
+
+                                                        3'b010 : begin // SLT
+                                                            $display("slt x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                        end
+
+                                                        3'b011 : begin // SLTU
+                                                            $display("sltu x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                        end
+
+                                                        3'b100 : begin // XOR
+                                                            $display("xor x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                        end
+
+                                                        3'b101 : begin // SRL
+                                                            $display("srl x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                        end
+
+                                                        3'b110 : begin // OR
+                                                            $display("or x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                        end
+
+                                                        3'b111 : begin // AND
+                                                            $display("and x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                        end
+
+                                                        default: begin
+                                                            $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+
+                                                            halted <= 1;
+
+                                                            $stop();
+                                                        end
+                                                    endcase
                                                 end
 
-                                                3'b010 : begin // SLT
-                                                    $display("slt x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                7'b0100000: begin
+                                                    case (function_3)
+                                                        3'b000: begin // SUB
+                                                            $display("sub x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                        end
+
+                                                        3'b101 : begin // SRA
+                                                            $display("sra x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                        end
+
+                                                        default: begin
+                                                            $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+
+                                                            halted <= 1;
+
+                                                            $stop();
+                                                        end
+                                                    endcase
                                                 end
 
-                                                3'b011 : begin // SLTU
-                                                    $display("sltu x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                end
-
-                                                3'b100 : begin // XOR
-                                                    $display("xor x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                end
-
-                                                3'b110 : begin // OR
-                                                    $display("or x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                end
-
-                                                3'b111 : begin // AND
-                                                    $display("and x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                end
-
-                                                3'b001 : begin // SLL
-                                                    $display("sll x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                end
-
-                                                3'b101 : begin
-                                                    if (instruction[30] == 0) begin // SRL
-                                                        $display("srl x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                    end else begin // SRA
-                                                        $display("sra x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                    end
-                                                end
-
-                                                default : begin
+                                                default: begin
                                                     $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
 
                                                     halted <= 1;
