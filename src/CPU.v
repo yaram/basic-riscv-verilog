@@ -89,19 +89,24 @@ module CPU(
     reg memory_unit_source_loaded;
     reg [31 : 0]memory_unit_source_value;
 
-    reg bus_asserted;
-    reg [station_index_size - 1 : 0]bus_source;
-    reg [31 : 0]bus_value;
+    parameter bus_count = 2;
+
+    reg bus_asserted_states[0 : bus_count - 1];
+    reg [station_index_size - 1 : 0]bus_sources[0 : bus_count - 1];
+    reg [31 : 0]bus_values[0 : bus_count - 1];
 
     integer i;
+    integer j;
 
     reg unoccupied_alu_found;
 
     reg unoccupied_multiplier_found;
 
-    reg bus_to_be_asserted;
+    reg bus_to_be_asserted[0 : bus_count - 1];
 
     reg instruction_load_to_begin;
+
+    reg value_on_a_bus;
 
     reg [63 : 0]effective_multiplier_source_1;
     reg [63 : 0]effective_multiplier_source_2;
@@ -134,7 +139,9 @@ module CPU(
             memory_unit_occupied <= 0;
             memory_unit_waiting <= 0;
 
-            bus_asserted <= 0;
+            for (i = 0; i < bus_count; i = i + 1) begin
+                bus_asserted_states[i] <= 0;
+            end
         end else if(!halted) begin
             `ifdef VERBOSE
             for (i = 0; i < 31; i = i + 1) begin
@@ -173,7 +180,9 @@ module CPU(
             $display("    Address: %d, %d, %h", memory_unit_address_loaded, memory_unit_address_index, memory_unit_address_value);
             $display("    Value: %d, %d, %d", memory_unit_source_loaded, memory_unit_source_index, memory_unit_source_value);
 
-            $display("Bus: %d, %d, %d", bus_asserted, bus_source, bus_value);
+            for (i = 0; i < multiplier_count; i = i + 1) begin
+                $display("Bus %d: %d, %d, %d", i, bus_asserted_states[i], bus_sources[i], bus_values[i]);
+            end
             `endif
 
             // Instruction Load
@@ -243,10 +252,18 @@ module CPU(
                                                     alu_source_1_values[i] <= 0;
                                                 end else begin
                                                     if (register_busy_states[source_1_register_index - 1]) begin
-                                                        if (bus_asserted && bus_source == register_station_indices[source_1_register_index - 1]) begin
-                                                            alu_source_1_loaded_states[i] <= 1;
-                                                            alu_source_1_values[i] <= bus_value;
-                                                        end else begin
+                                                        value_on_a_bus = 0;
+
+                                                        for (j = 0; j < bus_count; j = j + 1) begin
+                                                            if (!value_on_a_bus && bus_asserted_states[i] && bus_sources[j] == register_station_indices[source_1_register_index - 1]) begin
+                                                                alu_source_1_loaded_states[i] <= 1;
+                                                                alu_source_1_values[i] <= bus_values[j];
+
+                                                                value_on_a_bus = 1;
+                                                            end
+                                                        end
+
+                                                        if (!value_on_a_bus) begin
                                                             alu_source_1_loaded_states[i] <= 0;
                                                             alu_source_1_indices[i] <= register_station_indices[source_1_register_index - 1];
                                                         end
@@ -401,10 +418,18 @@ module CPU(
                                                             multiplier_source_1_values[i] <= 0;
                                                         end else begin
                                                             if (register_busy_states[source_1_register_index - 1]) begin
-                                                                if (bus_asserted && bus_source == register_station_indices[source_1_register_index - 1]) begin
-                                                                    multiplier_source_1_loaded_states[i] <= 1;
-                                                                    multiplier_source_1_values[i] <= bus_value;
-                                                                end else begin
+                                                                value_on_a_bus = 0;
+
+                                                                for (j = 0; j < bus_count; j = j + 1) begin
+                                                                    if (!value_on_a_bus && bus_asserted_states[i] && bus_sources[j] == register_station_indices[source_1_register_index - 1]) begin
+                                                                        multiplier_source_1_loaded_states[i] <= 1;
+                                                                        multiplier_source_1_values[i] <= bus_values[j];
+
+                                                                        value_on_a_bus = 1;
+                                                                    end
+                                                                end
+
+                                                                if (!value_on_a_bus) begin
                                                                     multiplier_source_1_loaded_states[i] <= 0;
                                                                     multiplier_source_1_indices[i] <= register_station_indices[source_1_register_index - 1];
                                                                 end
@@ -419,10 +444,18 @@ module CPU(
                                                             multiplier_source_2_values[i] <= 0;
                                                         end else begin
                                                             if (register_busy_states[source_2_register_index - 1]) begin
-                                                                if (bus_asserted && bus_source == register_station_indices[source_2_register_index - 1]) begin
-                                                                    multiplier_source_2_loaded_states[i] <= 1;
-                                                                    multiplier_source_2_values[i] <= bus_value;
-                                                                end else begin
+                                                                value_on_a_bus = 0;
+
+                                                                for (j = 0; j < bus_count; j = j + 1) begin
+                                                                    if (!value_on_a_bus && bus_asserted_states[i] && bus_sources[j] == register_station_indices[source_2_register_index - 1]) begin
+                                                                        multiplier_source_2_loaded_states[i] <= 1;
+                                                                        multiplier_source_2_values[i] <= bus_values[j];
+
+                                                                        value_on_a_bus = 1;
+                                                                    end
+                                                                end
+
+                                                                if (!value_on_a_bus) begin
                                                                     multiplier_source_2_loaded_states[i] <= 0;
                                                                     multiplier_source_2_indices[i] <= register_station_indices[source_2_register_index - 1];
                                                                 end
@@ -527,10 +560,18 @@ module CPU(
                                                             alu_source_1_values[i] <= 0;
                                                         end else begin
                                                             if (register_busy_states[source_1_register_index - 1]) begin
-                                                                if (bus_asserted && bus_source == register_station_indices[source_1_register_index - 1]) begin
-                                                                    alu_source_1_loaded_states[i] <= 1;
-                                                                    alu_source_1_values[i] <= bus_value;
-                                                                end else begin
+                                                                value_on_a_bus = 0;
+
+                                                                for (j = 0; j < bus_count; j = j + 1) begin
+                                                                    if (!value_on_a_bus && bus_asserted_states[i] && bus_sources[j] == register_station_indices[source_1_register_index - 1]) begin
+                                                                        alu_source_1_loaded_states[i] <= 1;
+                                                                        alu_source_1_values[i] <= bus_values[j];
+
+                                                                        value_on_a_bus = 1;
+                                                                    end
+                                                                end
+
+                                                                if (!value_on_a_bus) begin
                                                                     alu_source_1_loaded_states[i] <= 0;
                                                                     alu_source_1_indices[i] <= register_station_indices[source_1_register_index - 1];
                                                                 end
@@ -545,10 +586,18 @@ module CPU(
                                                             alu_source_2_values[i] <= 0;
                                                         end else begin
                                                             if (register_busy_states[source_2_register_index - 1]) begin
-                                                                if (bus_asserted && bus_source == register_station_indices[source_2_register_index - 1]) begin
-                                                                    alu_source_2_loaded_states[i] <= 1;
-                                                                    alu_source_2_values[i] <= bus_value;
-                                                                end else begin
+                                                                value_on_a_bus = 0;
+
+                                                                for (j = 0; j < bus_count; j = j + 1) begin
+                                                                    if (!value_on_a_bus && bus_asserted_states[i] && bus_sources[j] == register_station_indices[source_2_register_index - 1]) begin
+                                                                        alu_source_2_loaded_states[i] <= 1;
+                                                                        alu_source_2_values[i] <= bus_values[j];
+
+                                                                        value_on_a_bus = 1;
+                                                                    end
+                                                                end
+
+                                                                if (!value_on_a_bus) begin
                                                                     alu_source_2_loaded_states[i] <= 0;
                                                                     alu_source_2_indices[i] <= register_station_indices[source_2_register_index - 1];
                                                                 end
@@ -852,10 +901,18 @@ module CPU(
                                         memory_unit_address_value <= 0;
                                     end else begin
                                         if (register_busy_states[source_1_register_index - 1]) begin
-                                            if (bus_asserted && bus_source == register_station_indices[source_1_register_index - 1]) begin
-                                                memory_unit_address_loaded <= 1;
-                                                memory_unit_address_value <= bus_value;
-                                            end else begin
+                                            value_on_a_bus = 0;
+
+                                            for (i = 0; i < bus_count; i = i + 1) begin
+                                                if (!value_on_a_bus && bus_asserted_states[i] && bus_sources[i] == register_station_indices[source_1_register_index - 1]) begin
+                                                    memory_unit_address_loaded <= 1;
+                                                    memory_unit_address_value <= bus_values[i];
+
+                                                    value_on_a_bus = 1;
+                                                end
+                                            end
+
+                                            if (!value_on_a_bus) begin
                                                 memory_unit_address_loaded <= 0;
                                                 memory_unit_address_index <= register_station_indices[source_1_register_index - 1];
                                             end
@@ -925,10 +982,18 @@ module CPU(
                                         memory_unit_address_value <= 0;
                                     end else begin
                                         if (register_busy_states[source_1_register_index - 1]) begin
-                                            if (bus_asserted && bus_source == register_station_indices[source_1_register_index - 1]) begin
-                                                memory_unit_address_loaded <= 1;
-                                                memory_unit_address_value <= bus_value;
-                                            end else begin
+                                            value_on_a_bus = 0;
+
+                                            for (i = 0; i < bus_count; i = i + 1) begin
+                                                if (!value_on_a_bus && bus_asserted_states[i] && bus_sources[i] == register_station_indices[source_1_register_index - 1]) begin
+                                                    memory_unit_address_loaded <= 1;
+                                                    memory_unit_address_value <= bus_values[i];
+
+                                                    value_on_a_bus = 1;
+                                                end
+                                            end
+
+                                            if (!value_on_a_bus) begin
                                                 memory_unit_address_loaded <= 0;
                                                 memory_unit_address_index <= register_station_indices[source_1_register_index - 1];
                                             end
@@ -944,10 +1009,18 @@ module CPU(
                                         memory_unit_source_value <= 0;
                                     end else begin
                                         if (register_busy_states[source_2_register_index - 1]) begin
-                                            if (bus_asserted && bus_source == register_station_indices[source_2_register_index - 1]) begin
-                                                memory_unit_source_loaded <= 1;
-                                                memory_unit_source_value <= bus_value;
-                                            end else begin
+                                            value_on_a_bus = 0;
+
+                                            for (i = 0; i < bus_count; i = i + 1) begin
+                                                if (!value_on_a_bus && bus_asserted_states[i] && bus_sources[i] == register_station_indices[source_2_register_index - 1]) begin
+                                                    memory_unit_source_loaded <= 1;
+                                                    memory_unit_source_value <= bus_values[i];
+
+                                                    value_on_a_bus = 1;
+                                                end
+                                            end
+
+                                            if (!value_on_a_bus) begin
                                                 memory_unit_source_loaded <= 0;
                                                 memory_unit_source_index <= register_station_indices[source_2_register_index - 1];
                                             end
@@ -1030,78 +1103,97 @@ module CPU(
             // Register Loading
 
             for (i = 0; i < 31; i = i + 1) begin
-                if (register_busy_states[i] && bus_asserted && bus_source == register_station_indices[i]) begin
-                    register_busy_states[i] <= 0;
-                    register_values[i] <= bus_value;
+                for (j = 0; j < bus_count; j = j + 1) begin
+                    if (register_busy_states[i] && bus_asserted_states[j] && bus_sources[j] == register_station_indices[i]) begin
+                        register_busy_states[i] <= 0;
+                        register_values[i] <= bus_values[j];
+                    end 
                 end
             end
 
             // ALUs
 
-            bus_to_be_asserted = 0;
+            for (i = 0; i < bus_count; i = i + 1) begin
+                bus_to_be_asserted[i] = 0;
+            end
 
             for (i = 0; i < alu_count; i = i + 1) begin
                 if (alu_occupied_states[i]) begin
-                    if (bus_asserted) begin
-                        if (!alu_source_1_loaded_states[i] && bus_source == alu_source_1_indices[i]) begin
-                            alu_source_1_loaded_states[i] <= 1;
-                            alu_source_1_values[i] <= bus_value;
-                        end
+                    value_on_a_bus = 0;
 
-                        if (!alu_source_2_loaded_states[i] && bus_source == alu_source_2_indices[i]) begin
-                            alu_source_2_loaded_states[i] <= 1;
-                            alu_source_2_values[i] <= bus_value;
+                    for (j = 0; j < bus_count; j = j + 1) begin
+                        if (!value_on_a_bus && bus_asserted_states[j] && !alu_source_1_loaded_states[i] && bus_sources[j] == alu_source_1_indices[i]) begin
+                            alu_source_1_loaded_states[i] <= 1;
+                            alu_source_1_values[i] <= bus_values[j];
+
+                            value_on_a_bus = 1;
                         end
                     end
 
-                    if (alu_source_1_loaded_states[i] && alu_source_2_loaded_states[i] && !bus_to_be_asserted) begin
-                        bus_source <= first_alu_station + i;
+                    value_on_a_bus = 0;
 
-                        bus_to_be_asserted = 1;
+                    for (j = 0; j < bus_count; j = j + 1) begin
+                        if (!value_on_a_bus && bus_asserted_states[j] && !alu_source_2_loaded_states[i] && bus_sources[j] == alu_source_2_indices[i]) begin
+                            alu_source_2_loaded_states[i] <= 1;
+                            alu_source_2_values[i] <= bus_values[j];
 
-                        alu_occupied_states[i] <= 0;
+                            value_on_a_bus = 1;
+                        end
+                    end
 
-                        case (alu_operations[i])
-                            0 : begin
-                                bus_value <= alu_source_1_values[i] + alu_source_2_values[i];
-                            end
+                    value_on_a_bus = 0;
 
-                            1 : begin
-                                bus_value <= alu_source_1_values[i] - alu_source_2_values[i];
-                            end
+                    for (j = 0; j < bus_count; j = j + 1) begin
+                        if (!value_on_a_bus && alu_source_1_loaded_states[i] && alu_source_2_loaded_states[i] && !bus_to_be_asserted[j]) begin
+                            bus_sources[j] <= first_alu_station + i;
 
-                            2 : begin
-                                bus_value <= alu_source_1_values[i] | alu_source_2_values[i];
-                            end
+                            bus_to_be_asserted[j] = 1;
+                            value_on_a_bus = 1;
 
-                            3 : begin
-                                bus_value <= alu_source_1_values[i] & alu_source_2_values[i];
-                            end
+                            alu_occupied_states[i] <= 0;
 
-                            4 : begin
-                                bus_value <= alu_source_1_values[i] ^ alu_source_2_values[i];
-                            end
+                            case (alu_operations[i])
+                                0 : begin
+                                    bus_values[j] <= alu_source_1_values[i] + alu_source_2_values[i];
+                                end
 
-                            5 : begin
-                                bus_value <= alu_source_1_values[i] << alu_source_2_values[i][4 : 0];
-                            end
+                                1 : begin
+                                    bus_values[j] <= alu_source_1_values[i] - alu_source_2_values[i];
+                                end
 
-                            6 : begin
-                                bus_value <= alu_source_1_values[i] >> alu_source_2_values[i][4 : 0];
-                            end
+                                2 : begin
+                                    bus_values[j] <= alu_source_1_values[i] | alu_source_2_values[i];
+                                end
 
-                            7 : begin
-                                bus_value <= $signed(alu_source_1_values[i]) >>> alu_source_2_values[i][4 : 0];
-                            end
+                                3 : begin
+                                    bus_values[j] <= alu_source_1_values[i] & alu_source_2_values[i];
+                                end
 
-                            8 : begin
-                                bus_value <= alu_source_1_values[i] < alu_source_2_values[i];
-                            end
+                                4 : begin
+                                    bus_values[j] <= alu_source_1_values[i] ^ alu_source_2_values[i];
+                                end
 
-                            9 : begin
-                                bus_value <= $signed(alu_source_1_values[i]) < $signed(alu_source_2_values[i]);
-                            end
-                        endcase
+                                5 : begin
+                                    bus_values[j] <= alu_source_1_values[i] << alu_source_2_values[i][4 : 0];
+                                end
+
+                                6 : begin
+                                    bus_values[j] <= alu_source_1_values[i] >> alu_source_2_values[i][4 : 0];
+                                end
+
+                                7 : begin
+                                    bus_values[j] <= $signed(alu_source_1_values[i]) >>> alu_source_2_values[i][4 : 0];
+                                end
+
+                                8 : begin
+                                    bus_values[j] <= alu_source_1_values[i] < alu_source_2_values[i];
+                                end
+
+                                9 : begin
+                                    bus_values[j] <= $signed(alu_source_1_values[i]) < $signed(alu_source_2_values[i]);
+                                end
+                            endcase
+                        end
                     end
                 end
             end
@@ -1110,17 +1202,25 @@ module CPU(
 
             for (i = 0; i < multiplier_count; i = i + 1) begin
                 if (multiplier_occupied_states[i]) begin
-                    if (bus_asserted) begin
-                        if (!multiplier_source_1_loaded_states[i] && bus_source == multiplier_source_1_indices[i]) begin
+                    value_on_a_bus = 0;
+
+                    for (j = 0; j < bus_count; j = j + 1) begin
+                        if (!value_on_a_bus && bus_asserted_states[j] && !multiplier_source_1_loaded_states[i] && bus_sources[j] == multiplier_source_1_indices[i]) begin
                             multiplier_source_1_loaded_states[i] <= 1;
+                            multiplier_source_1_values[i] <= bus_values[j];
 
-                            multiplier_source_1_values[i] <= bus_value;
+                            value_on_a_bus = 1;
                         end
+                    end
 
-                        if (!multiplier_source_2_loaded_states[i] && bus_source == multiplier_source_2_indices[i]) begin
+                    value_on_a_bus = 0;
+
+                    for (j = 0; j < bus_count; j = j + 1) begin
+                        if (!value_on_a_bus && bus_asserted_states[j] && !multiplier_source_2_loaded_states[i] && bus_sources[j] == multiplier_source_2_indices[i]) begin
                             multiplier_source_2_loaded_states[i] <= 1;
+                            multiplier_source_2_values[i] <= bus_values[j];
 
-                            multiplier_source_2_values[i] <= bus_value;
+                            value_on_a_bus = 1;
                         end
                     end
 
@@ -1138,17 +1238,22 @@ module CPU(
                         end
 
                         if (multiplier_iterations[i] == 64) begin
-                            if (!bus_to_be_asserted) begin
-                                bus_source <= first_multiplier_station + i;
+                            value_on_a_bus = 0;
 
-                                bus_to_be_asserted = 1;
+                            for (j = 0; j < bus_count; j = j + 1) begin
+                                if (!value_on_a_bus && !bus_to_be_asserted[j]) begin
+                                    bus_sources[j] <= first_multiplier_station + i;
 
-                                multiplier_occupied_states[i] <= 0;
+                                    bus_to_be_asserted[j] = 1;
+                                    value_on_a_bus = 1;
 
-                                if (multiplier_upper_result_flags[i]) begin
-                                    bus_value <= multiplier_accumulator_values[i][63 : 32];
-                                end else begin
-                                    bus_value <= multiplier_accumulator_values[i][31 : 0];
+                                    multiplier_occupied_states[i] <= 0;
+
+                                    if (multiplier_upper_result_flags[i]) begin
+                                        bus_values[j] <= multiplier_accumulator_values[i][63 : 32];
+                                    end else begin
+                                        bus_values[j] <= multiplier_accumulator_values[i][31 : 0];
+                                    end
                                 end
                             end
                         end else begin
@@ -1168,14 +1273,26 @@ module CPU(
 
             if (memory_unit_occupied) begin
                 if (!memory_unit_waiting) begin
-                    if (!memory_unit_address_loaded && bus_asserted && bus_source == memory_unit_address_index) begin
-                        memory_unit_address_loaded <= 1;
-                        memory_unit_address_value <= bus_value;
+                    value_on_a_bus = 0;
+
+                    for (i = 0; i < bus_count; i = i + 1) begin
+                        if (!value_on_a_bus && bus_asserted_states[i] && !memory_unit_address_loaded && bus_sources[i] == memory_unit_address_index) begin
+                            memory_unit_address_loaded <= 1;
+                            memory_unit_address_value <= bus_values[i];
+
+                            value_on_a_bus = 1;
+                        end
                     end
 
-                    if (memory_unit_operation == 1 && !memory_unit_source_loaded && bus_asserted && bus_source == memory_unit_source_index) begin
-                        memory_unit_source_loaded <= 1;
-                        memory_unit_source_value <= bus_value;
+                    value_on_a_bus = 0;
+
+                    for (i = 0; i < bus_count; i = i + 1) begin
+                        if (!value_on_a_bus && bus_asserted_states[i] && !memory_unit_source_loaded && bus_sources[i] == memory_unit_source_index) begin
+                            memory_unit_source_loaded <= 1;
+                            memory_unit_source_value <= bus_values[i];
+
+                            value_on_a_bus = 1;
+                        end
                     end
 
                     if (!memory_ready && memory_unit_address_loaded && (memory_unit_operation == 0 || memory_unit_source_loaded)) begin
@@ -1193,47 +1310,54 @@ module CPU(
                         end
                     end
                 end else begin
-                    if (memory_ready && !bus_to_be_asserted) begin
-                        $display("Memory Operation End");
+                    value_on_a_bus = 0;
 
-                        memory_unit_waiting <= 0;
+                    for (i = 0; i < bus_count; i = i + 1) begin
+                        if (!value_on_a_bus && memory_ready && !bus_to_be_asserted[i]) begin
+                            $display("Memory Operation End");
 
-                        bus_to_be_asserted = 1;
+                            memory_unit_waiting <= 0;
 
-                        bus_source <= first_memory_unit_station;
+                            bus_to_be_asserted[i] = 1;
+                            value_on_a_bus = 1;
 
-                        memory_unit_occupied <= 0;
+                            bus_sources[i] <= first_memory_unit_station;
 
-                        memory_enable <= 0;
+                            memory_unit_occupied <= 0;
 
-                        if (memory_unit_operation == 0) begin
-                            case (memory_unit_data_size)
-                                0: begin
-                                    if (memory_unit_signed) begin
-                                        bus_value <= {{25{memory_data_in[7]}}, memory_data_in[6 : 0]};
-                                    end else begin
-                                        bus_value <= {24'b0, memory_data_in[7 : 0]};
+                            memory_enable <= 0;
+
+                            if (memory_unit_operation == 0) begin
+                                case (memory_unit_data_size)
+                                    0: begin
+                                        if (memory_unit_signed) begin
+                                            bus_values[i] <= {{25{memory_data_in[7]}}, memory_data_in[6 : 0]};
+                                        end else begin
+                                            bus_values[i] <= {24'b0, memory_data_in[7 : 0]};
+                                        end
                                     end
-                                end
 
-                                1: begin
-                                    if (memory_unit_signed) begin
-                                        bus_value <= {{17{memory_data_in[15]}}, memory_data_in[14 : 0]};
-                                    end else begin
-                                        bus_value <= {16'b0, memory_data_in[15 : 0]};
+                                    1: begin
+                                        if (memory_unit_signed) begin
+                                            bus_values[i] <= {{17{memory_data_in[15]}}, memory_data_in[14 : 0]};
+                                        end else begin
+                                            bus_values[i] <= {16'b0, memory_data_in[15 : 0]};
+                                        end
                                     end
-                                end
 
-                                2: begin
-                                    bus_value <= memory_data_in;
-                                end
-                            endcase
+                                    2: begin
+                                        bus_values[i] <= memory_data_in;
+                                    end
+                                endcase
+                            end
                         end
                     end
                 end
             end
 
-            bus_asserted <= bus_to_be_asserted;
+            for (i = 0; i < bus_count; i = i + 1) begin
+                bus_asserted_states[i] <= bus_to_be_asserted[i];
+            end
         end
     end
 endmodule
