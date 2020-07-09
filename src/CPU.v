@@ -115,7 +115,10 @@ module CPU(
 
     reg [63 : 0]effective_multiplier_source_1;
     reg [63 : 0]effective_multiplier_source_2;
-    reg [63 : 0]multiplier_intermediate_product;
+
+    reg [6 : 0]sub_cycle_multiplier_iteration;
+    reg [63 : 0]sub_cycle_multiplier_accumulator;
+    reg [31 : 0]sub_cycle_multiplier_quotient;
 
     always @(posedge clock or posedge reset) begin
         if (reset) begin
@@ -1369,7 +1372,7 @@ module CPU(
                             effective_multiplier_source_2 = {32'b0, multiplier_source_2_values[i]};
                         end
 
-                        if (multiplier_iterations[i] == 64) begin
+                        if (effective_multiplier_source_2 == 0) begin
                             value_on_a_bus = 0;
 
                             for (j = 0; j < bus_count; j = j + 1) begin
@@ -1383,87 +1386,97 @@ module CPU(
 
                                     case (multiplier_operations[i])
                                         0 : begin
-                                            if (multiplier_upper_result_flags[i]) begin
-                                                bus_values[j] <= multiplier_accumulator_values[i][63 : 32];
-                                            end else begin
-                                                bus_values[j] <= multiplier_accumulator_values[i][31 : 0];
-                                            end
+                                            bus_values[j] <= 0;
                                         end
 
                                         1 : begin
-                                            if (effective_multiplier_source_1[63] == effective_multiplier_source_2[63]) begin
-                                                bus_values[j] <= multiplier_quotient_values[i][31 : 0];
-                                            end else begin
-                                                bus_values[j] <= -multiplier_quotient_values[i][31 : 0];
-                                            end
+                                            bus_values[j] <= -1;
                                         end
 
                                         2 : begin
-                                            if (!effective_multiplier_source_1[63]) begin
-                                                bus_values[j] <= multiplier_accumulator_values[i][31 : 0];
-                                            end else begin
-                                                bus_values[j] <= -multiplier_accumulator_values[i][31 : 0];
-                                            end
+                                            bus_values[j] <= effective_multiplier_source_1[31 : 0];
                                         end
                                     endcase
                                 end
                             end
                         end else begin
-                            multiplier_intermediate_product = multiplier_accumulator_values[i] << 1;
+                            if (multiplier_iterations[i] == 64) begin
+                                value_on_a_bus = 0;
 
-                            if (multiplier_operations[i] == 0) begin
-                                if (effective_multiplier_source_2[63 - multiplier_iterations[i]]) begin
-                                    multiplier_accumulator_values[i] <= multiplier_intermediate_product + effective_multiplier_source_1;
-                                end else begin
-                                    multiplier_accumulator_values[i] <= multiplier_intermediate_product;
+                                for (j = 0; j < bus_count; j = j + 1) begin
+                                    if (!value_on_a_bus && !bus_to_be_asserted[j]) begin
+                                        bus_sources[j] <= first_multiplier_station + i;
+
+                                        bus_to_be_asserted[j] = 1;
+                                        value_on_a_bus = 1;
+
+                                        multiplier_occupied_states[i] <= 0;
+
+                                        case (multiplier_operations[i])
+                                            0 : begin
+                                                if (multiplier_upper_result_flags[i]) begin
+                                                    bus_values[j] <= multiplier_accumulator_values[i][63 : 32];
+                                                end else begin
+                                                    bus_values[j] <= multiplier_accumulator_values[i][31 : 0];
+                                                end
+                                            end
+
+                                            1 : begin
+                                                if (effective_multiplier_source_1[63] == effective_multiplier_source_2[63]) begin
+                                                    bus_values[j] <= multiplier_quotient_values[i][31 : 0];
+                                                end else begin
+                                                    bus_values[j] <= -multiplier_quotient_values[i][31 : 0];
+                                                end
+                                            end
+
+                                            2 : begin
+                                                if (!effective_multiplier_source_1[63]) begin
+                                                    bus_values[j] <= multiplier_accumulator_values[i][31 : 0];
+                                                end else begin
+                                                    bus_values[j] <= -multiplier_accumulator_values[i][31 : 0];
+                                                end
+                                            end
+                                        endcase
+                                    end
                                 end
-
-                                multiplier_iterations[i] <= multiplier_iterations[i] + 1;
                             end else begin
-                                if (effective_multiplier_source_2 == 0) begin
-                                    value_on_a_bus = 0;
+                                sub_cycle_multiplier_iteration = multiplier_iterations[i];
+                                sub_cycle_multiplier_accumulator = multiplier_accumulator_values[i];
+                                sub_cycle_multiplier_quotient = multiplier_quotient_values[i];
 
-                                    for (j = 0; j < bus_count; j = j + 1) begin
-                                        if (!value_on_a_bus && !bus_to_be_asserted[j]) begin
-                                            bus_sources[j] <= first_multiplier_station + i;
+                                for (j = 0; j < 4; j = j + 1) begin
+                                    sub_cycle_multiplier_accumulator = sub_cycle_multiplier_accumulator << 1;
 
-                                            bus_to_be_asserted[j] = 1;
-                                            value_on_a_bus = 1;
-
-                                            multiplier_occupied_states[i] <= 0;
-
-                                            case (multiplier_operations[i])
-                                                1 : begin
-                                                    bus_values[j] <= -1;
-                                                end
-
-                                                2 : begin
-                                                    bus_values[j] <= effective_multiplier_source_1[31 : 0];
-                                                end
-                                            endcase
+                                    if (multiplier_operations[i] == 0) begin
+                                        if (effective_multiplier_source_2[63 - sub_cycle_multiplier_iteration]) begin
+                                            sub_cycle_multiplier_accumulator = sub_cycle_multiplier_accumulator + effective_multiplier_source_1;
                                         end
-                                    end
-                                end else begin
-                                    if (effective_multiplier_source_1[63] == 1) begin
-                                        effective_multiplier_source_1 = -effective_multiplier_source_1;
-                                    end
 
-                                    if (effective_multiplier_source_2[63] == 1) begin
-                                        effective_multiplier_source_2 = -effective_multiplier_source_2;
-                                    end
-
-                                    multiplier_intermediate_product[0] = effective_multiplier_source_1[63 - multiplier_iterations[i]];
-
-                                    if (multiplier_intermediate_product >= effective_multiplier_source_2) begin
-                                        multiplier_accumulator_values[i] <= multiplier_intermediate_product - effective_multiplier_source_2;
-
-                                        multiplier_quotient_values[i][63 - multiplier_iterations[i]] = 1;
+                                        sub_cycle_multiplier_iteration = sub_cycle_multiplier_iteration + 1;
                                     end else begin
-                                        multiplier_accumulator_values[i] <= multiplier_intermediate_product;
-                                    end
+                                        if (effective_multiplier_source_1[63] == 1) begin
+                                            effective_multiplier_source_1 = -effective_multiplier_source_1;
+                                        end
 
-                                    multiplier_iterations[i] <= multiplier_iterations[i] + 1;
+                                        if (effective_multiplier_source_2[63] == 1) begin
+                                            effective_multiplier_source_2 = -effective_multiplier_source_2;
+                                        end
+
+                                        sub_cycle_multiplier_accumulator[0] = effective_multiplier_source_1[63 - sub_cycle_multiplier_iteration];
+
+                                        if (sub_cycle_multiplier_accumulator >= effective_multiplier_source_2) begin
+                                            sub_cycle_multiplier_accumulator = sub_cycle_multiplier_accumulator - effective_multiplier_source_2;
+
+                                            sub_cycle_multiplier_quotient[63 - sub_cycle_multiplier_iteration] = 1;
+                                        end
+
+                                        sub_cycle_multiplier_iteration = sub_cycle_multiplier_iteration + 1;
+                                    end
                                 end
+
+                                multiplier_iterations[i] <= sub_cycle_multiplier_iteration;
+                                multiplier_accumulator_values[i] <= sub_cycle_multiplier_accumulator;
+                                multiplier_quotient_values[i] <= sub_cycle_multiplier_quotient;
                             end
                         end
                     end
