@@ -1372,14 +1372,16 @@ module CPU(
                         end
                     end
 
-                    value_on_a_bus = 0;
+                    if (memory_unit_operation == 1) begin
+                        value_on_a_bus = 0;
 
-                    for (i = 0; i < bus_count; i = i + 1) begin
-                        if (!value_on_a_bus && bus_asserted_states[i] && !memory_unit_source_loaded && bus_sources[i] == memory_unit_source_index) begin
-                            memory_unit_source_loaded <= 1;
-                            memory_unit_source_value <= bus_values[i];
+                        for (i = 0; i < bus_count; i = i + 1) begin
+                            if (!value_on_a_bus && bus_asserted_states[i] && !memory_unit_source_loaded && bus_sources[i] == memory_unit_source_index) begin
+                                memory_unit_source_loaded <= 1;
+                                memory_unit_source_value <= bus_values[i];
 
-                            value_on_a_bus = 1;
+                                value_on_a_bus = 1;
+                            end
                         end
                     end
 
