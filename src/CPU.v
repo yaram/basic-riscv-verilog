@@ -97,8 +97,11 @@ module CPU(
     reg [station_index_size - 1 : 0]bus_sources[0 : bus_count - 1];
     reg [31 : 0]bus_values[0 : bus_count - 1];
 
+    // For loop / iteration registers
     integer i;
     integer j;
+
+    // Blocking-assignment registers, the values do not pass from one clock cycle to another
 
     reg unoccupied_alu_found;
 
