@@ -63,6 +63,7 @@ module CPU(
     reg [31 : 0]alu_source_1_values[0 : alu_count - 1];
     reg [31 : 0]alu_source_2_values[0 : alu_count - 1];
 
+    reg [1 : 0]multiplier_operations[0 : multiplier_count - 1];
     reg multiplier_occupied_states[0 : multiplier_count - 1];
     reg [station_index_size - 1 : 0]multiplier_source_1_indices[0 : multiplier_count - 1];
     reg [station_index_size - 1 : 0]multiplier_source_2_indices[0 : multiplier_count - 1];
@@ -74,6 +75,7 @@ module CPU(
     reg multiplier_source_2_signed_flags[0 : multiplier_count - 1];
     reg multiplier_upper_result_flags[0 : multiplier_count - 1];
     reg [63 : 0]multiplier_accumulator_values[0 : multiplier_count - 1];
+    reg [63 : 0]multiplier_quotient_values[0 : multiplier_count - 1];
     reg [6 : 0]multiplier_iterations[0 : multiplier_count - 1];
 
     reg memory_unit_occupied;
@@ -110,6 +112,7 @@ module CPU(
 
     reg [63 : 0]effective_multiplier_source_1;
     reg [63 : 0]effective_multiplier_source_2;
+    reg [63 : 0]multiplier_intermediate_product;
 
     always @(posedge clock or posedge reset) begin
         if (reset) begin
@@ -174,6 +177,7 @@ module CPU(
                 end
 
                 $display("    Accumulator: %d", multiplier_accumulator_values[i]);
+                $display("    Quotient: %d", multiplier_quotient_values[i]);
             end
 
             $display("Memory: %d, %d, %d", memory_unit_occupied, memory_unit_operation, memory_unit_waiting);
@@ -451,6 +455,7 @@ module CPU(
 
                                                         multiplier_occupied_states[i] <= 1;
                                                         multiplier_accumulator_values[i] <= 0;
+                                                        multiplier_quotient_values[i] <= 0;
                                                         multiplier_iterations[i] <= 0;
 
                                                         if (source_1_register_index == 0) begin
@@ -512,6 +517,7 @@ module CPU(
                                                             3'b000 : begin // MUL
                                                                 $display("mul x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
 
+                                                                multiplier_operations[i] <= 0;
                                                                 multiplier_source_1_signed_flags[i] <= 0;
                                                                 multiplier_source_2_signed_flags[i] <= 0;
                                                                 multiplier_upper_result_flags[i] <= 0;
@@ -520,6 +526,7 @@ module CPU(
                                                             3'b001 : begin // MULH
                                                                 $display("mulh x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
 
+                                                                multiplier_operations[i] <= 0;
                                                                 multiplier_source_1_signed_flags[i] <= 1;
                                                                 multiplier_source_2_signed_flags[i] <= 1;
                                                                 multiplier_upper_result_flags[i] <= 1;
@@ -528,6 +535,7 @@ module CPU(
                                                             3'b010 : begin // MULHSU
                                                                 $display("mulhsu x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
 
+                                                                multiplier_operations[i] <= 0;
                                                                 multiplier_source_1_signed_flags[i] <= 1;
                                                                 multiplier_source_2_signed_flags[i] <= 0;
                                                                 multiplier_upper_result_flags[i] <= 1;
@@ -536,9 +544,42 @@ module CPU(
                                                             3'b011 : begin // MULHU
                                                                 $display("mulhu x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
 
+                                                                multiplier_operations[i] <= 0;
                                                                 multiplier_source_1_signed_flags[i] <= 0;
                                                                 multiplier_source_2_signed_flags[i] <= 0;
                                                                 multiplier_upper_result_flags[i] <= 1;
+                                                            end
+
+                                                            3'b100 : begin // DIV
+                                                                $display("div x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+
+                                                                multiplier_operations[i] <= 1;
+                                                                multiplier_source_1_signed_flags[i] <= 1;
+                                                                multiplier_source_2_signed_flags[i] <= 1;
+                                                            end
+
+                                                            3'b101 : begin // DIVU
+                                                                $display("divu x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+
+                                                                multiplier_operations[i] <= 1;
+                                                                multiplier_source_1_signed_flags[i] <= 0;
+                                                                multiplier_source_2_signed_flags[i] <= 0;
+                                                            end
+
+                                                            3'b110 : begin // REM
+                                                                $display("rem x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+
+                                                                multiplier_operations[i] <= 2;
+                                                                multiplier_source_1_signed_flags[i] <= 1;
+                                                                multiplier_source_2_signed_flags[i] <= 1;
+                                                            end
+
+                                                            3'b111 : begin // REMU
+                                                                $display("remu x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+
+                                                                multiplier_operations[i] <= 2;
+                                                                multiplier_source_1_signed_flags[i] <= 0;
+                                                                multiplier_source_2_signed_flags[i] <= 0;
                                                             end
 
                                                             default : begin
@@ -1337,21 +1378,90 @@ module CPU(
 
                                     multiplier_occupied_states[i] <= 0;
 
-                                    if (multiplier_upper_result_flags[i]) begin
-                                        bus_values[j] <= multiplier_accumulator_values[i][63 : 32];
-                                    end else begin
-                                        bus_values[j] <= multiplier_accumulator_values[i][31 : 0];
-                                    end
+                                    case (multiplier_operations[i])
+                                        0 : begin
+                                            if (multiplier_upper_result_flags[i]) begin
+                                                bus_values[j] <= multiplier_accumulator_values[i][63 : 32];
+                                            end else begin
+                                                bus_values[j] <= multiplier_accumulator_values[i][31 : 0];
+                                            end
+                                        end
+
+                                        1 : begin
+                                            if (effective_multiplier_source_1[63] == effective_multiplier_source_2[63]) begin
+                                                bus_values[j] <= multiplier_quotient_values[i][31 : 0];
+                                            end else begin
+                                                bus_values[j] <= -multiplier_quotient_values[i][31 : 0];
+                                            end
+                                        end
+
+                                        2 : begin
+                                            if (!effective_multiplier_source_1[63]) begin
+                                                bus_values[j] <= multiplier_accumulator_values[i][31 : 0];
+                                            end else begin
+                                                bus_values[j] <= -multiplier_accumulator_values[i][31 : 0];
+                                            end
+                                        end
+                                    endcase
                                 end
                             end
                         end else begin
-                            if (effective_multiplier_source_2[63 - multiplier_iterations[i]]) begin
-                                multiplier_accumulator_values[i] <= (multiplier_accumulator_values[i] << 1) + effective_multiplier_source_1;
-                            end else begin
-                                multiplier_accumulator_values[i] <= multiplier_accumulator_values[i] << 1;
-                            end
+                            multiplier_intermediate_product = multiplier_accumulator_values[i] << 1;
 
-                            multiplier_iterations[i] <= multiplier_iterations[i] + 1;
+                            if (multiplier_operations[i] == 0) begin
+                                if (effective_multiplier_source_2[63 - multiplier_iterations[i]]) begin
+                                    multiplier_accumulator_values[i] <= multiplier_intermediate_product + effective_multiplier_source_1;
+                                end else begin
+                                    multiplier_accumulator_values[i] <= multiplier_intermediate_product;
+                                end
+
+                                multiplier_iterations[i] <= multiplier_iterations[i] + 1;
+                            end else begin
+                                if (effective_multiplier_source_2 == 0) begin
+                                    value_on_a_bus = 0;
+
+                                    for (j = 0; j < bus_count; j = j + 1) begin
+                                        if (!value_on_a_bus && !bus_to_be_asserted[j]) begin
+                                            bus_sources[j] <= first_multiplier_station + i;
+
+                                            bus_to_be_asserted[j] = 1;
+                                            value_on_a_bus = 1;
+
+                                            multiplier_occupied_states[i] <= 0;
+
+                                            case (multiplier_operations[i])
+                                                1 : begin
+                                                    bus_values[j] <= -1;
+                                                end
+
+                                                2 : begin
+                                                    bus_values[j] <= effective_multiplier_source_1[31 : 0];
+                                                end
+                                            endcase
+                                        end
+                                    end
+                                end else begin
+                                    if (effective_multiplier_source_1[63] == 1) begin
+                                        effective_multiplier_source_1 = -effective_multiplier_source_1;
+                                    end
+
+                                    if (effective_multiplier_source_2[63] == 1) begin
+                                        effective_multiplier_source_2 = -effective_multiplier_source_2;
+                                    end
+
+                                    multiplier_intermediate_product[0] = effective_multiplier_source_1[63 - multiplier_iterations[i]];
+
+                                    if (multiplier_intermediate_product >= effective_multiplier_source_2) begin
+                                        multiplier_accumulator_values[i] <= multiplier_intermediate_product - effective_multiplier_source_2;
+
+                                        multiplier_quotient_values[i][63 - multiplier_iterations[i]] = 1;
+                                    end else begin
+                                        multiplier_accumulator_values[i] <= multiplier_intermediate_product;
+                                    end
+
+                                    multiplier_iterations[i] <= multiplier_iterations[i] + 1;
+                                end
+                            end
                         end
                     end
                 end
