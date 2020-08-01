@@ -265,7 +265,7 @@ module CPU(
                                                         value_on_a_bus = 0;
 
                                                         for (j = 0; j < bus_count; j = j + 1) begin
-                                                            if (!value_on_a_bus && bus_asserted_states[i] && bus_sources[j] == register_station_indices[source_1_register_index - 1]) begin
+                                                            if (!value_on_a_bus && bus_asserted_states[j] && bus_sources[j] == register_station_indices[source_1_register_index - 1]) begin
                                                                 alu_source_1_loaded_states[i] <= 1;
                                                                 alu_source_1_values[i] <= bus_values[j];
 
@@ -472,7 +472,7 @@ module CPU(
                                                                 value_on_a_bus = 0;
 
                                                                 for (j = 0; j < bus_count; j = j + 1) begin
-                                                                    if (!value_on_a_bus && bus_asserted_states[i] && bus_sources[j] == register_station_indices[source_1_register_index - 1]) begin
+                                                                    if (!value_on_a_bus && bus_asserted_states[j] && bus_sources[j] == register_station_indices[source_1_register_index - 1]) begin
                                                                         multiplier_source_1_loaded_states[i] <= 1;
                                                                         multiplier_source_1_values[i] <= bus_values[j];
 
@@ -498,7 +498,7 @@ module CPU(
                                                                 value_on_a_bus = 0;
 
                                                                 for (j = 0; j < bus_count; j = j + 1) begin
-                                                                    if (!value_on_a_bus && bus_asserted_states[i] && bus_sources[j] == register_station_indices[source_2_register_index - 1]) begin
+                                                                    if (!value_on_a_bus && bus_asserted_states[j] && bus_sources[j] == register_station_indices[source_2_register_index - 1]) begin
                                                                         multiplier_source_2_loaded_states[i] <= 1;
                                                                         multiplier_source_2_values[i] <= bus_values[j];
 
@@ -650,7 +650,7 @@ module CPU(
                                                                 value_on_a_bus = 0;
 
                                                                 for (j = 0; j < bus_count; j = j + 1) begin
-                                                                    if (!value_on_a_bus && bus_asserted_states[i] && bus_sources[j] == register_station_indices[source_1_register_index - 1]) begin
+                                                                    if (!value_on_a_bus && bus_asserted_states[j] && bus_sources[j] == register_station_indices[source_1_register_index - 1]) begin
                                                                         alu_source_1_loaded_states[i] <= 1;
                                                                         alu_source_1_values[i] <= bus_values[j];
 
@@ -676,7 +676,7 @@ module CPU(
                                                                 value_on_a_bus = 0;
 
                                                                 for (j = 0; j < bus_count; j = j + 1) begin
-                                                                    if (!value_on_a_bus && bus_asserted_states[i] && bus_sources[j] == register_station_indices[source_2_register_index - 1]) begin
+                                                                    if (!value_on_a_bus && bus_asserted_states[j] && bus_sources[j] == register_station_indices[source_2_register_index - 1]) begin
                                                                         alu_source_2_loaded_states[i] <= 1;
                                                                         alu_source_2_values[i] <= bus_values[j];
 
