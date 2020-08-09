@@ -62,6 +62,7 @@ def run_test_set(set_name, tests):
             '-Wall',
             '-g2001',
             '-D', 'ROM_PATH="{}"'.format(os.path.join(build_directory, 'test.hex').replace('\\', '\\\\')),
+            '-D', 'SIMULATION',
             '-o', os.path.join(build_directory, 'testbench'),
             os.path.join(source_directory, 'Testbench.v')
         )

@@ -122,7 +122,9 @@ module CPU(
 
     always @(posedge clock or posedge reset) begin
         if (reset) begin
+            `ifdef SIMULATION
             $display("Reset");
+            `endif
 
             memory_enable <= 0;
 
@@ -152,6 +154,7 @@ module CPU(
                 bus_asserted_states[i] <= 0;
             end
         end else if(!halted) begin
+            `ifdef SIMULATION
             `ifdef VERBOSE
             for (i = 0; i < 31; i = i + 1) begin
                 $display("Reg %d: %d, %d, %d", i + 1, register_busy_states[i], register_station_indices[i], register_values[i]);
@@ -194,13 +197,16 @@ module CPU(
                 $display("Bus %d: %d, %d, %d", i, bus_asserted_states[i], bus_sources[i], bus_values[i]);
             end
             `endif
+            `endif
 
             // Instruction Load
 
             instruction_load_to_begin = 0;
 
             if (!memory_ready && !instruction_load_waiting && !instruction_load_canceling && !memory_unit_occupied) begin
+                `ifdef SIMULATION
                 $display("Instruction Load Begin");
+                `endif
 
                 memory_operation <= 0;
                 memory_address <= instruction_load_program_counter;
@@ -214,7 +220,9 @@ module CPU(
             end
 
             if (memory_ready && instruction_load_waiting && !instruction_load_loaded && !instruction_load_canceling) begin
+                `ifdef SIMULATION
                 $display("Instruction Load End");
+                `endif
 
                 instruction <= memory_data_in;
                 instruction_program_counter <= instruction_load_program_counter;
@@ -291,85 +299,115 @@ module CPU(
 
                                                 case (function_3)
                                                     3'b000 : begin // ADDI
+                                                        `ifdef SIMULATION
                                                         $display("addi x%0d, x%0d, %0d", destination_register_index, source_1_register_index, $signed(immediate));
+                                                        `endif
 
                                                         alu_operations[i] <= 0;
                                                     end
 
                                                     3'b010 : begin // SLTI
+                                                        `ifdef SIMULATION
                                                         $display("slti x%0d, x%0d, %0d", destination_register_index, source_1_register_index, $signed(immediate));
+                                                        `endif
 
                                                         alu_operations[i] <= 9;
                                                     end
 
                                                     3'b011 : begin // SLTIU
+                                                        `ifdef SIMULATION
                                                         $display("sltiu x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
+                                                        `endif
 
                                                         alu_operations[i] <= 8;
                                                     end
 
                                                     3'b100 : begin // XORI
+                                                        `ifdef SIMULATION
                                                         $display("xori x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
+                                                        `endif
 
                                                         alu_operations[i] <= 4;
                                                     end
 
                                                     3'b110 : begin // ORI
+                                                        `ifdef SIMULATION
                                                         $display("ori x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
+                                                        `endif
 
                                                         alu_operations[i] <= 2;
                                                     end
 
                                                     3'b111 : begin // ANDI
+                                                        `ifdef SIMULATION
                                                         $display("andi x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
+                                                        `endif
 
                                                         alu_operations[i] <= 3;
                                                     end
 
                                                     3'b001 : begin // SLLI
                                                         if (function_7 == 7'b0000000) begin
+                                                            `ifdef SIMULATION
                                                             $display("slli x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
+                                                            `endif
 
                                                             alu_operations[i] <= 5;
                                                         end else begin
+                                                            `ifdef SIMULATION
                                                             $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+                                                            `endif
 
                                                             halted <= 1;
 
+                                                            `ifdef SIMULATION
                                                             $stop();
+                                                            `endif
                                                         end
                                                     end
 
                                                     3'b101 : begin
                                                         case (function_7)
                                                             7'b0000000: begin // SRLI
+                                                                `ifdef SIMULATION
                                                                 $display("srli x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate[4 : 0]);
+                                                                `endif
 
                                                                 alu_operations[i] <= 6;
                                                             end
 
                                                             7'b0100000: begin // SRAI
+                                                                `ifdef SIMULATION
                                                                 $display("srai x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate[4 : 0]);
+                                                                `endif
 
                                                                 alu_operations[i] <= 7;
                                                             end
 
                                                             default: begin
+                                                                `ifdef SIMULATION
                                                                 $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+                                                                `endif
 
                                                                 halted <= 1;
 
+                                                                `ifdef SIMULATION
                                                                 $stop();
+                                                                `endif
                                                             end
                                                         endcase
                                                     end
 
                                                     default : begin
+                                                        `ifdef SIMULATION
                                                         $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+                                                        `endif
 
                                                         halted <= 1;
 
+                                                        `ifdef SIMULATION
                                                         $stop();
+                                                        `endif
                                                     end
                                                 endcase
                                             end
@@ -380,67 +418,97 @@ module CPU(
 
                                     case (function_3)
                                         3'b000 : begin // ADDI
+                                            `ifdef SIMULATION
                                             $display("addi x%0d, x%0d, %0d", destination_register_index, source_1_register_index, $signed(immediate));
+                                            `endif
                                         end
 
                                         3'b010 : begin // SLTI
+                                            `ifdef SIMULATION
                                             $display("slti x%0d, x%0d, %0d", destination_register_index, source_1_register_index, $signed(immediate));
+                                            `endif
                                         end
 
                                         3'b011 : begin // SLTIU
+                                            `ifdef SIMULATION
                                             $display("sltiu x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
+                                            `endif
                                         end
 
                                         3'b100 : begin // XORI
+                                            `ifdef SIMULATION
                                             $display("xori x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
+                                            `endif
                                         end
 
                                         3'b110 : begin // ORI
+                                            `ifdef SIMULATION
                                             $display("ori x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
+                                            `endif
                                         end
 
                                         3'b111 : begin // ANDI
+                                            `ifdef SIMULATION
                                             $display("andi x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
+                                            `endif
                                         end
 
                                         3'b001 : begin // SLLI
                                             if (function_7 == 7'b0000000) begin
+                                                `ifdef SIMULATION
                                                 $display("slli x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
+                                                `endif
                                             end else begin
+                                                `ifdef SIMULATION
                                                 $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+                                                `endif
 
                                                 halted <= 1;
 
+                                                `ifdef SIMULATION
                                                 $stop();
+                                                `endif
                                             end
                                         end
 
                                         3'b101 : begin
                                             case (function_7)
                                                 7'b0000000: begin // SRLI
+                                                    `ifdef SIMULATION
                                                     $display("srli x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate[4 : 0]);
+                                                    `endif
                                                 end
 
                                                 7'b0100000: begin // SRAI
+                                                    `ifdef SIMULATION
                                                     $display("srai x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate[4 : 0]);
+                                                    `endif
                                                 end
 
                                                 default: begin
+                                                    `ifdef SIMULATION
                                                     $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+                                                    `endif
 
                                                     halted <= 1;
 
+                                                    `ifdef SIMULATION
                                                     $stop();
+                                                    `endif
                                                 end
                                             endcase
                                         end
 
                                         default : begin
+                                            `ifdef SIMULATION
                                             $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+                                            `endif
 
                                             halted <= 1;
 
+                                            `ifdef SIMULATION
                                             $stop();
+                                            `endif
                                         end
                                     endcase
                                 end
@@ -521,7 +589,9 @@ module CPU(
 
                                                         case (function_3)
                                                             3'b000 : begin // MUL
+                                                                `ifdef SIMULATION
                                                                 $display("mul x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                                `endif
 
                                                                 multiplier_operations[i] <= 0;
                                                                 multiplier_source_1_signed_flags[i] <= 0;
@@ -530,7 +600,9 @@ module CPU(
                                                             end
 
                                                             3'b001 : begin // MULH
+                                                                `ifdef SIMULATION
                                                                 $display("mulh x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                                `endif
 
                                                                 multiplier_operations[i] <= 0;
                                                                 multiplier_source_1_signed_flags[i] <= 1;
@@ -539,7 +611,9 @@ module CPU(
                                                             end
 
                                                             3'b010 : begin // MULHSU
+                                                                `ifdef SIMULATION
                                                                 $display("mulhsu x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                                `endif
 
                                                                 multiplier_operations[i] <= 0;
                                                                 multiplier_source_1_signed_flags[i] <= 1;
@@ -548,7 +622,9 @@ module CPU(
                                                             end
 
                                                             3'b011 : begin // MULHU
+                                                                `ifdef SIMULATION
                                                                 $display("mulhu x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                                `endif
 
                                                                 multiplier_operations[i] <= 0;
                                                                 multiplier_source_1_signed_flags[i] <= 0;
@@ -557,7 +633,9 @@ module CPU(
                                                             end
 
                                                             3'b100 : begin // DIV
+                                                                `ifdef SIMULATION
                                                                 $display("div x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                                `endif
 
                                                                 multiplier_operations[i] <= 1;
                                                                 multiplier_source_1_signed_flags[i] <= 1;
@@ -565,7 +643,9 @@ module CPU(
                                                             end
 
                                                             3'b101 : begin // DIVU
+                                                                `ifdef SIMULATION
                                                                 $display("divu x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                                `endif
 
                                                                 multiplier_operations[i] <= 1;
                                                                 multiplier_source_1_signed_flags[i] <= 0;
@@ -573,7 +653,9 @@ module CPU(
                                                             end
 
                                                             3'b110 : begin // REM
+                                                                `ifdef SIMULATION
                                                                 $display("rem x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                                `endif
 
                                                                 multiplier_operations[i] <= 2;
                                                                 multiplier_source_1_signed_flags[i] <= 1;
@@ -581,7 +663,9 @@ module CPU(
                                                             end
 
                                                             3'b111 : begin // REMU
+                                                                `ifdef SIMULATION
                                                                 $display("remu x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                                `endif
 
                                                                 multiplier_operations[i] <= 2;
                                                                 multiplier_source_1_signed_flags[i] <= 0;
@@ -589,11 +673,15 @@ module CPU(
                                                             end
 
                                                             default : begin
+                                                                `ifdef SIMULATION
                                                                 $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+                                                                `endif
 
                                                                 halted <= 1;
 
+                                                                `ifdef SIMULATION
                                                                 $stop();
+                                                                `endif
                                                             end
                                                         endcase
                                                     end
@@ -604,27 +692,39 @@ module CPU(
 
                                             case (function_3)
                                                     3'b000 : begin // MUL
+                                                        `ifdef SIMULATION
                                                         $display("mul x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                        `endif
                                                     end
 
                                                     3'b001 : begin // MULH
+                                                        `ifdef SIMULATION
                                                         $display("mulh x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                        `endif
                                                     end
 
                                                     3'b010 : begin // MULHSU
+                                                        `ifdef SIMULATION
                                                         $display("mulhsu x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                        `endif
                                                     end
 
                                                     3'b011 : begin // MULHU
+                                                        `ifdef SIMULATION
                                                         $display("mulhu x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                        `endif
                                                     end
 
                                                     default : begin
+                                                        `ifdef SIMULATION
                                                         $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+                                                        `endif
 
                                                         halted <= 1;
 
+                                                        `ifdef SIMULATION
                                                         $stop();
+                                                        `endif
                                                     end
                                             endcase
                                         end
@@ -701,59 +801,79 @@ module CPU(
                                                             7'b0000000: begin
                                                                 case (function_3)
                                                                     3'b000: begin // ADD
+                                                                        `ifdef SIMULATION
                                                                         $display("add x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                                        `endif
 
                                                                         alu_operations[i] <= 0;
                                                                     end
 
                                                                     3'b001 : begin // SLL
+                                                                        `ifdef SIMULATION
                                                                         $display("sll x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                                        `endif
 
                                                                         alu_operations[i] <= 5;
                                                                     end
 
                                                                     3'b010 : begin // SLT
+                                                                        `ifdef SIMULATION
                                                                         $display("slt x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                                        `endif
 
                                                                         alu_operations[i] <= 9;
                                                                     end
 
                                                                     3'b011 : begin // SLTU
+                                                                        `ifdef SIMULATION
                                                                         $display("sltu x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                                        `endif
 
                                                                         alu_operations[i] <= 8;
                                                                     end
 
                                                                     3'b100 : begin // XOR
+                                                                        `ifdef SIMULATION
                                                                         $display("xor x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                                        `endif
 
                                                                         alu_operations[i] <= 4;
                                                                     end
 
                                                                     3'b101 : begin // SRL
+                                                                        `ifdef SIMULATION
                                                                         $display("srl x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                                        `endif
 
                                                                         alu_operations[i] <= 6;
                                                                     end
 
                                                                     3'b110 : begin // OR
+                                                                        `ifdef SIMULATION
                                                                         $display("or x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                                        `endif
 
                                                                         alu_operations[i] <= 2;
                                                                     end
 
                                                                     3'b111 : begin // AND
+                                                                        `ifdef SIMULATION
                                                                         $display("and x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                                        `endif
 
                                                                         alu_operations[i] <= 3;
                                                                     end
 
                                                                     default: begin
+                                                                        `ifdef SIMULATION
                                                                         $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+                                                                        `endif
 
                                                                         halted <= 1;
 
+                                                                        `ifdef SIMULATION
                                                                         $stop();
+                                                                        `endif
                                                                     end
                                                                 endcase
                                                             end
@@ -761,33 +881,45 @@ module CPU(
                                                             7'b0100000: begin
                                                                 case (function_3)
                                                                     3'b000: begin // SUB
+                                                                        `ifdef SIMULATION
                                                                         $display("sub x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                                        `endif
 
                                                                         alu_operations[i] <= 1;
                                                                     end
 
                                                                     3'b101 : begin // SRA
+                                                                        `ifdef SIMULATION
                                                                         $display("sra x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                                        `endif
 
                                                                         alu_operations[i] <= 7;
                                                                     end
 
                                                                     default: begin
+                                                                        `ifdef SIMULATION
                                                                         $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+                                                                        `endif
 
                                                                         halted <= 1;
 
+                                                                        `ifdef SIMULATION
                                                                         $stop();
+                                                                        `endif
                                                                     end
                                                                 endcase
                                                             end
 
                                                             default: begin
+                                                                `ifdef SIMULATION
                                                                 $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+                                                                `endif
 
                                                                 halted <= 1;
 
+                                                                `ifdef SIMULATION
                                                                 $stop();
+                                                                `endif
                                                             end
                                                         endcase
                                                     end
@@ -800,43 +932,63 @@ module CPU(
                                                 7'b0000000: begin
                                                     case (function_3)
                                                         3'b000: begin // ADD
+                                                            `ifdef SIMULATION
                                                             $display("add x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                            `endif
                                                         end
 
                                                         3'b001 : begin // SLL
+                                                            `ifdef SIMULATION
                                                             $display("sll x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                            `endif
                                                         end
 
                                                         3'b010 : begin // SLT
+                                                            `ifdef SIMULATION
                                                             $display("slt x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                            `endif
                                                         end
 
                                                         3'b011 : begin // SLTU
+                                                            `ifdef SIMULATION
                                                             $display("sltu x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                            `endif
                                                         end
 
                                                         3'b100 : begin // XOR
+                                                            `ifdef SIMULATION
                                                             $display("xor x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                            `endif
                                                         end
 
                                                         3'b101 : begin // SRL
+                                                            `ifdef SIMULATION
                                                             $display("srl x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                            `endif
                                                         end
 
                                                         3'b110 : begin // OR
+                                                            `ifdef SIMULATION
                                                             $display("or x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                            `endif
                                                         end
 
                                                         3'b111 : begin // AND
+                                                            `ifdef SIMULATION
                                                             $display("and x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                            `endif
                                                         end
 
                                                         default: begin
+                                                            `ifdef SIMULATION
                                                             $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+                                                            `endif
 
                                                             halted <= 1;
 
+                                                            `ifdef SIMULATION
                                                             $stop();
+                                                            `endif
                                                         end
                                                     endcase
                                                 end
@@ -844,29 +996,41 @@ module CPU(
                                                 7'b0100000: begin
                                                     case (function_3)
                                                         3'b000: begin // SUB
+                                                            `ifdef SIMULATION
                                                             $display("sub x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                            `endif
                                                         end
 
                                                         3'b101 : begin // SRA
+                                                            `ifdef SIMULATION
                                                             $display("sra x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
+                                                            `endif
                                                         end
 
                                                         default: begin
+                                                            `ifdef SIMULATION
                                                             $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+                                                            `endif
 
                                                             halted <= 1;
 
+                                                            `ifdef SIMULATION
                                                             $stop();
+                                                            `endif
                                                         end
                                                     endcase
                                                 end
 
                                                 default: begin
+                                                    `ifdef SIMULATION
                                                     $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+                                                    `endif
 
                                                     halted <= 1;
 
+                                                    `ifdef SIMULATION
                                                     $stop();
+                                                    `endif
                                                 end
                                             endcase
                                         end
@@ -876,7 +1040,9 @@ module CPU(
 
                             5'b00101 : begin // AUIPC
                                 if (destination_register_index == 0 || !register_busy_states[destination_register_index - 1]) begin
+                                    `ifdef SIMULATION
                                     $display("auipc x%0d, %0d", destination_register_index, immediate_upper);
+                                    `endif
 
                                     if (destination_register_index != 0) begin
                                         register_values[destination_register_index - 1] <= instruction_program_counter + {immediate_upper, 12'b0};
@@ -888,7 +1054,9 @@ module CPU(
 
                             5'b01101 : begin // LUI
                                 if (destination_register_index == 0 || !register_busy_states[destination_register_index - 1]) begin
+                                    `ifdef SIMULATION
                                     $display("lui x%0d, %0d", destination_register_index, immediate_upper);
+                                    `endif
 
                                     if (destination_register_index != 0) begin
                                         register_values[destination_register_index - 1] <= {immediate_upper, 12'b0};
@@ -908,7 +1076,9 @@ module CPU(
 
                                     case (function_3)
                                         3'b000 : begin // BEQ
+                                            `ifdef SIMULATION
                                             $display("beq x%0d, x%0d, %0d", source_1_register_index, source_2_register_index, immediate_branch);
+                                            `endif
 
                                             if (source_1_register_value == source_2_register_value) begin
                                                 instruction_load_program_counter <= instruction_program_counter + immediate_branch;
@@ -918,7 +1088,9 @@ module CPU(
                                         end
 
                                         3'b001 : begin // BNE
+                                            `ifdef SIMULATION
                                             $display("bne x%0d, x%0d, %0d", source_1_register_index, source_2_register_index, immediate_branch);
+                                            `endif
 
                                             if (source_1_register_value != source_2_register_value) begin
                                                 instruction_load_program_counter <= instruction_program_counter + immediate_branch;
@@ -928,7 +1100,9 @@ module CPU(
                                         end
 
                                         3'b100 : begin // BLT
+                                            `ifdef SIMULATION
                                             $display("blt x%0d, x%0d, %0d", source_1_register_index, source_2_register_index, immediate_branch);
+                                            `endif
 
                                             if ($signed(source_1_register_value) < $signed(source_2_register_value)) begin
                                                 instruction_load_program_counter <= instruction_program_counter + immediate_branch;
@@ -938,7 +1112,9 @@ module CPU(
                                         end
 
                                         3'b101 : begin // BGE
+                                            `ifdef SIMULATION
                                             $display("bge x%0d, x%0d, %0d", source_1_register_index, source_2_register_index, immediate_branch);
+                                            `endif
                                             
                                             if ($signed(source_1_register_value) >= $signed(source_2_register_value)) begin
                                                 instruction_load_program_counter <= instruction_program_counter + immediate_branch;
@@ -948,7 +1124,9 @@ module CPU(
                                         end
 
                                         3'b110 : begin // BLTU
+                                            `ifdef SIMULATION
                                             $display("bltu x%0d, x%0d, %0d", source_1_register_index, source_2_register_index, immediate_branch);
+                                            `endif
                                             
                                             if (source_1_register_value < source_2_register_value) begin
                                                 instruction_load_program_counter <= instruction_program_counter + immediate_branch;
@@ -958,7 +1136,9 @@ module CPU(
                                         end
 
                                         3'b111 : begin // BGEU
+                                            `ifdef SIMULATION
                                             $display("bgeu x%0d, x%0d, %0d", source_1_register_index, source_2_register_index, immediate_branch);
+                                            `endif
                                             
                                             if (source_1_register_value >= source_2_register_value) begin
                                                 instruction_load_program_counter <= instruction_program_counter + immediate_branch;
@@ -968,11 +1148,15 @@ module CPU(
                                         end
 
                                         default : begin
+                                            `ifdef SIMULATION
                                             $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+                                            `endif
 
                                             halted <= 1;
 
+                                            `ifdef SIMULATION
                                             $stop();
+                                            `endif
                                         end
                                     endcase
                                 end
@@ -984,7 +1168,9 @@ module CPU(
                                     !register_busy_states[destination_register_index - 1]) && 
                                     !instruction_load_to_begin
                                 ) begin
+                                    `ifdef SIMULATION
                                     $display("jal x%0d, %0d", destination_register_index, $signed(immediate_jump));
+                                    `endif
 
                                     if (destination_register_index != 0) begin
                                         register_values[destination_register_index - 1] <= instruction_program_counter + 4;
@@ -1004,7 +1190,9 @@ module CPU(
                                     (source_1_register_index == 0 || !register_busy_states[source_1_register_index - 1]) &&
                                     !instruction_load_to_begin
                                 ) begin
+                                    `ifdef SIMULATION
                                     $display("jalr x%0d, x%0d, %0d", destination_register_index, source_1_register_index, $signed(immediate));
+                                    `endif
 
                                     if (destination_register_index != 0) begin
                                         register_values[destination_register_index - 1] <= instruction_program_counter + 4;
@@ -1065,35 +1253,45 @@ module CPU(
 
                                     case (function_3)
                                         3'b000 : begin // LB
+                                            `ifdef SIMULATION
                                             $display("lb x%0d, %0d(x%0d)", destination_register_index, $signed(immediate), source_1_register_index);
+                                            `endif
 
                                             memory_unit_data_size <= 0;
                                             memory_unit_signed <= 1;
                                         end
 
                                         3'b001 : begin // LH
+                                            `ifdef SIMULATION
                                             $display("lh x%0d, %0d(x%0d)", destination_register_index, $signed(immediate), source_1_register_index);
+                                            `endif
 
                                             memory_unit_data_size <= 1;
                                             memory_unit_signed <= 1;
                                         end
 
                                         3'b010 : begin // LW
+                                            `ifdef SIMULATION
                                             $display("lw x%0d, %0d(x%0d)", destination_register_index, $signed(immediate), source_1_register_index);
+                                            `endif
 
                                             memory_unit_data_size <= 2;
                                             memory_unit_signed <= 1;
                                         end
 
                                         3'b100 : begin // LBU
+                                            `ifdef SIMULATION
                                             $display("lbu x%0d, %0d(x%0d)", destination_register_index, $signed(immediate), source_1_register_index);
+                                            `endif
 
                                             memory_unit_data_size <= 0;
                                             memory_unit_signed <= 0;
                                         end
 
                                         3'b101 : begin // LHU
+                                            `ifdef SIMULATION
                                             $display("lhu x%0d, %0d(x%0d)", destination_register_index, $signed(immediate), source_1_register_index);
+                                            `endif
 
                                             memory_unit_data_size <= 1;
                                             memory_unit_signed <= 0;
@@ -1167,29 +1365,39 @@ module CPU(
 
                                     case (function_3)
                                         3'b000 : begin // SB
+                                            `ifdef SIMULATION
                                             $display("sb x%0d, %0d(x%0d)", source_2_register_index, $signed(immediate_store), source_1_register_index);
+                                            `endif
 
                                             memory_unit_data_size <= 0;
                                         end
 
                                         3'b001 : begin // SH
+                                            `ifdef SIMULATION
                                             $display("sh x%0d, %0d(x%0d)", source_2_register_index, $signed(immediate_store), source_1_register_index);
+                                            `endif
 
                                             memory_unit_data_size <= 1;
                                         end
 
                                         3'b010 : begin // SW
+                                            `ifdef SIMULATION
                                             $display("sw x%0d, %0d(x%0d)", source_2_register_index, $signed(immediate_store), source_1_register_index);
+                                            `endif
 
                                             memory_unit_data_size <= 2;
                                         end
 
                                         default : begin
+                                            `ifdef SIMULATION
                                             $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+                                            `endif
 
                                             halted <= 1;
 
+                                            `ifdef SIMULATION
                                             $stop();
+                                            `endif
                                         end
                                     endcase
                                 end
@@ -1206,31 +1414,43 @@ module CPU(
                                     end
 
                                     default : begin
+                                        `ifdef SIMULATION
                                         $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+                                        `endif
 
                                         halted <= 1;
 
+                                        `ifdef SIMULATION
                                         $stop();
+                                        `endif
                                     end
                                 endcase
                             end
 
                             default : begin
+                                `ifdef SIMULATION
                                 $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+                                `endif
 
                                 halted <= 1;
 
+                                `ifdef SIMULATION
                                 $stop();
+                                `endif
                             end
                         endcase
                     end
 
                     default : begin
+                        `ifdef SIMULATION
                         $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+                        `endif
 
                         halted <= 1;
 
+                        `ifdef SIMULATION
                         $stop();
+                        `endif
                     end
                 endcase
             end
@@ -1512,7 +1732,9 @@ module CPU(
                     end
 
                     if (!memory_ready && memory_unit_address_loaded && (memory_unit_operation == 0 || memory_unit_source_loaded)) begin
+                        `ifdef SIMULATION
                         $display("Memory Operation Begin");
+                        `endif
 
                         memory_unit_waiting <= 1;
 
@@ -1530,7 +1752,9 @@ module CPU(
 
                     for (i = 0; i < bus_count; i = i + 1) begin
                         if (!value_on_a_bus && memory_ready && !bus_to_be_asserted[i]) begin
+                            `ifdef SIMULATION
                             $display("Memory Operation End");
+                            `endif
 
                             memory_unit_waiting <= 0;
 
