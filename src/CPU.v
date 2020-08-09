@@ -48,7 +48,7 @@ module CPU(
     parameter first_memory_unit_station = first_multiplier_station + multiplier_count;
 
     parameter station_count = first_memory_unit_station + memory_unit_count;
-    parameter station_index_size = 3; // $bits(station_count - 1)
+    parameter station_index_size = $clog2((station_count - 1) + 1);
 
     reg register_busy_states[0 : 30];
     reg [station_index_size - 1 : 0]register_station_indices[0 : 30];
