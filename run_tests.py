@@ -6,12 +6,18 @@ import subprocess
 import shutil
 
 def run_command(executable, *arguments):
-    subprocess.call([executable, *arguments], stdout=sys.stdout, stderr=sys.stderr)
+    try:
+        subprocess.run([executable, *arguments], check=True, capture_output=True)
+    except subprocess.CalledProcessError as err:
+        print(err.output.decode('utf-8'))
+        raise
 
 parent_directory = os.path.dirname(os.path.realpath(__file__))
 
 source_directory = os.path.join(parent_directory, 'src')
 build_directory = os.path.join(parent_directory, 'build')
+
+executable_name = 'testbench.exe' if os.name == 'nt' else 'testbench'
 
 if not os.path.exists(build_directory):
     os.makedirs(build_directory)
@@ -20,12 +26,13 @@ def run_test_set(set_name, tests):
     print('Test set {}:'.format(set_name))
 
     for name in tests:
-        print('Running test {}... '.format(name), end='')
+        print('Running test {}... '.format(name), end='', flush=True)
 
         run_command(
             shutil.which('clang'),
             '-target', 'riscv32-unknown-unknown-elf',
             '-march=rv32im',
+            '-mno-relax',
             '-I{}'.format(os.path.join(parent_directory, 'tests', 'isa', 'macros', 'scalar')),
             '-I{}'.format(os.path.join(source_directory, 'tests')),
             '-DTESTNUM=x31',
@@ -57,28 +64,34 @@ def run_test_set(set_name, tests):
                 for byte in rom_bytes:
                     hex_file.write('%0.2X ' % byte)
 
-        run_command(
-            shutil.which('iverilog'),
-            '-Wall',
-            '-g2001',
-            '-D', 'ROM_PATH="{}"'.format(os.path.join(build_directory, 'test.hex').replace('\\', '\\\\')),
-            '-D', 'SIMULATION',
-            '-o', os.path.join(build_directory, 'testbench'),
-            os.path.join(source_directory, 'Testbench.v')
-        )
-
         try:
-            output = subprocess.check_output(
-                [shutil.which('vvp'), '-n', os.path.join(build_directory, 'testbench')],
-                timeout=5
+            subprocess.run(
+                [os.path.join(build_directory, executable_name)],
+                capture_output=True,
+                timeout=5,
+                check=True
             )
 
-            if 'Test Passed' in output.decode('utf-8'):
-                print('Passed')
-            else:
-                print('Failed')
-        except:
-                print('Failed')
+            print('Passed')
+        except subprocess.CalledProcessError as err:
+            print('Failed')
+            print(err.output.decode('utf-8'))
+        except subprocess.TimeoutExpired as err:
+            print('Failed (timeout)')
+            print(err.output.decode('utf-8'))
+
+run_command(
+    shutil.which('cmake'),
+    '-GNinja',
+    '-S', os.path.join(source_directory, 'tests'),
+    '-B', build_directory
+)
+
+run_command(
+    shutil.which('cmake'),
+    '--build',
+    build_directory
+)
 
 run_test_set('rv32ui', [
     'simple',

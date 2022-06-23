@@ -34,21 +34,21 @@ module CPU(
     wire [31 : 0]immediate = {{21{instruction[31]}}, instruction[30 : 20]};
     wire [31 : 0]immediate_store = {{21{instruction[31]}}, instruction[30 : 25], instruction[11 : 7]};
     wire [31 : 0]immediate_branch = {{20{instruction[31]}}, instruction[7], instruction[30 : 25], instruction[11 : 8], 1'b0};
-    wire [31 : 0]immediate_upper = instruction[31 : 12];
+    wire [19 : 0]immediate_upper = instruction[31 : 12];
     wire [31 : 0]immediate_jump = {{12{instruction[31]}}, instruction[19 : 12], instruction[20], instruction[30 : 21], 1'b0};
 
-    parameter alu_count = 4;
+    localparam alu_count = 4;
 
-    parameter multiplier_count = 2;
+    localparam multiplier_count = 2;
 
-    parameter memory_unit_count = 1;
+    localparam memory_unit_count = 1;
 
-    parameter first_alu_station = 0;
-    parameter first_multiplier_station = first_alu_station + alu_count;
-    parameter first_memory_unit_station = first_multiplier_station + multiplier_count;
+    localparam first_alu_station = 0;
+    localparam first_multiplier_station = first_alu_station + alu_count;
+    localparam first_memory_unit_station = first_multiplier_station + multiplier_count;
 
-    parameter station_count = first_memory_unit_station + memory_unit_count;
-    parameter station_index_size = $clog2((station_count - 1) + 1);
+    localparam station_count = first_memory_unit_station + memory_unit_count;
+    localparam station_index_size = $clog2((station_count - 1) + 1);
 
     reg register_busy_states[0 : 30];
     reg [station_index_size - 1 : 0]register_station_indices[0 : 30];
@@ -91,7 +91,7 @@ module CPU(
     reg memory_unit_source_loaded;
     reg [31 : 0]memory_unit_source_value;
 
-    parameter bus_count = 2;
+    localparam bus_count = 2;
 
     reg bus_asserted_states[0 : bus_count - 1];
     reg [station_index_size - 1 : 0]bus_sources[0 : bus_count - 1];
@@ -100,6 +100,7 @@ module CPU(
     // For loop / iteration registers
     integer i;
     integer j;
+    integer iteration_helper;
 
     // Blocking-assignment registers, the values do not pass from one clock cycle to another
 
@@ -118,7 +119,7 @@ module CPU(
 
     reg [6 : 0]sub_cycle_multiplier_iteration;
     reg [63 : 0]sub_cycle_multiplier_accumulator;
-    reg [31 : 0]sub_cycle_multiplier_quotient;
+    reg [63 : 0]sub_cycle_multiplier_quotient;
 
     always @(posedge clock or posedge reset) begin
         if (reset) begin
@@ -295,7 +296,8 @@ module CPU(
                                                 alu_source_2_values[i] <= immediate;
 
                                                 register_busy_states[destination_register_index - 1] <= 1;
-                                                register_station_indices[destination_register_index - 1] <= first_alu_station + i;
+                                                iteration_helper = first_alu_station + i;
+                                                register_station_indices[destination_register_index - 1] <= iteration_helper[station_index_size - 1 : 0];
 
                                                 case (function_3)
                                                     3'b000 : begin // ADDI
@@ -585,7 +587,8 @@ module CPU(
                                                         end
 
                                                         register_busy_states[destination_register_index - 1] <= 1;
-                                                        register_station_indices[destination_register_index - 1] <= first_multiplier_station + i;
+                                                        iteration_helper = first_multiplier_station + i;
+                                                        register_station_indices[destination_register_index - 1] <= iteration_helper[station_index_size - 1 : 0];
 
                                                         case (function_3)
                                                             3'b000 : begin // MUL
@@ -795,7 +798,8 @@ module CPU(
                                                         end
 
                                                         register_busy_states[destination_register_index - 1] <= 1;
-                                                        register_station_indices[destination_register_index - 1] <= first_alu_station + i;
+                                                        iteration_helper = first_alu_station + i;
+                                                        register_station_indices[destination_register_index - 1] <= iteration_helper[station_index_size - 1 : 0];
 
                                                         case (function_7)
                                                             7'b0000000: begin
@@ -1296,6 +1300,18 @@ module CPU(
                                             memory_unit_data_size <= 1;
                                             memory_unit_signed <= 0;
                                         end
+
+                                        default : begin
+                                            `ifdef SIMULATION
+                                            $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
+                                            `endif
+
+                                            halted <= 1;
+
+                                            `ifdef SIMULATION
+                                            $stop();
+                                            `endif
+                                        end
                                     endcase
                                 end
                             end
@@ -1500,7 +1516,8 @@ module CPU(
 
                     for (j = 0; j < bus_count; j = j + 1) begin
                         if (!value_on_a_bus && alu_source_1_loaded_states[i] && alu_source_2_loaded_states[i] && !bus_to_be_asserted[j]) begin
-                            bus_sources[j] <= first_alu_station + i;
+                            iteration_helper = first_alu_station + i;
+                            bus_sources[j] <= iteration_helper[station_index_size - 1 : 0];
 
                             bus_to_be_asserted[j] = 1;
                             value_on_a_bus = 1;
@@ -1541,11 +1558,11 @@ module CPU(
                                 end
 
                                 8 : begin
-                                    bus_values[j] <= alu_source_1_values[i] < alu_source_2_values[i];
+                                    bus_values[j] <= {31'b0, alu_source_1_values[i] < alu_source_2_values[i]};
                                 end
 
                                 9 : begin
-                                    bus_values[j] <= $signed(alu_source_1_values[i]) < $signed(alu_source_2_values[i]);
+                                    bus_values[j] <= {31'b0, $signed(alu_source_1_values[i]) < $signed(alu_source_2_values[i])};
                                 end
                             endcase
                         end
@@ -1597,7 +1614,8 @@ module CPU(
 
                             for (j = 0; j < bus_count; j = j + 1) begin
                                 if (!value_on_a_bus && !bus_to_be_asserted[j]) begin
-                                    bus_sources[j] <= first_multiplier_station + i;
+                                    iteration_helper = first_multiplier_station + i;
+                                    bus_sources[j] <= iteration_helper[station_index_size - 1 : 0];
 
                                     bus_to_be_asserted[j] = 1;
                                     value_on_a_bus = 1;
@@ -1625,7 +1643,8 @@ module CPU(
 
                                 for (j = 0; j < bus_count; j = j + 1) begin
                                     if (!value_on_a_bus && !bus_to_be_asserted[j]) begin
-                                        bus_sources[j] <= first_multiplier_station + i;
+                                        iteration_helper = first_multiplier_station + i;
+                                        bus_sources[j] <= iteration_helper[station_index_size - 1 : 0];
 
                                         bus_to_be_asserted[j] = 1;
                                         value_on_a_bus = 1;
