@@ -58,8 +58,8 @@ module InstructionDecoder (
 
     assign branch_immediate = immediate_branch;
 
-    assign jump_and_link_immediate = immediate;
-    assign jump_and_link_relative_immediate = immediate_jump;
+    assign jump_and_link_immediate = immediate_jump;
+    assign jump_and_link_relative_immediate = immediate;
 
     always @* begin
         valid_instruction = 1;
