@@ -64,7 +64,7 @@ module MemoryArbiter
 
         for (i = 0; i < ACCESSOR_COUNT; i = i + 1) begin
             accessor_memory_data_in[i] = memory_data_in;
-            accessor_memory_ready[i] = memory_ready;
+            accessor_memory_ready[i] = 0;
 
             if (!active && !set_active && accessor_memory_enable[i]) begin
                 set_active = 1;
@@ -74,6 +74,7 @@ module MemoryArbiter
 
         if (active) begin
             memory_enable = accessor_memory_enable[active_accessor_index];
+            accessor_memory_ready[active_accessor_index] = memory_ready;
 
             if (!memory_enable && !memory_ready) begin
                 reset_active = 1;

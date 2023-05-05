@@ -601,7 +601,7 @@ module CPU (
                         end
                     end
                 end else if (decoder_memory_unit) begin
-                    if (decoder_memory_unit_operation == 0) begin
+                    if (decoder_memory_unit_operation == 1) begin
                         load_next_instruction = 1;
 
                         memory_unit_set_occupied = 1;
