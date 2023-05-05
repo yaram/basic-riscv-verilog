@@ -1,10 +1,8 @@
 cmake_minimum_required(VERSION 3.8)
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/")
-
 project(test)
 
-find_package(verilator)
+find_package(verilator REQUIRED HINTS $ENV{VERILATOR_ROOT})
 
 add_executable(testbench
     main.cpp
@@ -12,8 +10,22 @@ add_executable(testbench
 
 verilate(
     testbench
-    VERILATOR_ARGS "-DROM_PATH=\"${CMAKE_CURRENT_BINARY_DIR}/test.hex\""
     SOURCES
     Testbench.v
+    ../flatten.v
+    ../InstructionDecoder.v
+    ../RegisterFile.v
+    ../IntegerUnit.v
+    ../Multiplier.v
+    ../MemoryUnit.v
+    ../BusArbiter.v
+    ../MemoryArbiter.v
     ../CPU.v
+    TOP_MODULE Testbench
+    TRACE
+    VERILATOR_ARGS
+    "-DSIMULATION"
+    "-DROM_PATH=\"${CMAKE_CURRENT_BINARY_DIR}/test.hex\""
+    --language 1364-2005
+    -Wno-UNOPTFLAT
 )

@@ -1,29 +1,35 @@
-`include "flatten.v"
-
 module BusArbiter
 #(
     parameter SIZE = 32,
     parameter STATION_COUNT = 1,
     parameter BUS_COUNT = 1
 ) (
-    output [BUS_COUNT - 1: 0]bus_asserted_flat,
-    output [BUS_COUNT * STATION_INDEX_SIZE - 1 : 0]bus_source_flat,
-    output [BUS_COUNT * SIZE - 1 : 0]bus_value_flat,
+    output `FLAT_ARRAY(bus_asserted, 1, BUS_COUNT),
+    output `FLAT_ARRAY(bus_source, STATION_INDEX_SIZE, BUS_COUNT),
+    output `FLAT_ARRAY(bus_value, SIZE, BUS_COUNT),
 
-    input [STATION_COUNT - 1 : 0]station_ready_flat,
-    input [STATION_COUNT * SIZE - 1 : 0]station_value_flat,
-    output [STATION_COUNT - 1 : 0]station_is_asserting_flat,
+    input `FLAT_ARRAY(station_ready, 1, STATION_COUNT),
+    input `FLAT_ARRAY(station_value, SIZE, STATION_COUNT),
+    output `FLAT_ARRAY(station_is_asserting, 1, STATION_COUNT)
 );
-    localparam STATION_INDEX_SIZE = $clog2(STATION_COUNT - 1);
-    localparam BUS_INDEX_SIZE = $clog2(BUS_COUNT - 1);
+    genvar flatten_i;
 
-    `UNFLATTEN_OUTPUT(bus_asserted, 1, BUS_COUNT);
-    `UNFLATTEN_OUTPUT(bus_source, STATION_INDEX_SIZE, BUS_COUNT);
-    `UNFLATTEN_OUTPUT(bus_value, SIZE, BUS_COUNT);
+    localparam STATION_INDEX_SIZE = $clog2(STATION_COUNT);
+    localparam BUS_INDEX_SIZE = $clog2(BUS_COUNT);
 
-    `UNFLATTEN(station_ready, 1, STATION_COUNT);
-    `UNFLATTEN(station_value, SIZE, STATION_COUNT);
-    `UNFLATTEN_OUTPUT(station_is_asserting, 1, STATION_COUNT);
+    reg `ARRAY(bus_asserted, 1, BUS_COUNT);
+    `FLAT_EQUALS_NORMAL(bus_asserted, 1, BUS_COUNT);
+    reg `ARRAY(bus_source, STATION_INDEX_SIZE, BUS_COUNT);
+    `FLAT_EQUALS_NORMAL(bus_source, STATION_INDEX_SIZE, BUS_COUNT);
+    reg `ARRAY(bus_value, SIZE, BUS_COUNT);
+    `FLAT_EQUALS_NORMAL(bus_value, SIZE, BUS_COUNT);
+
+    wire `ARRAY(station_ready, 1, STATION_COUNT);
+    `NORMAL_EQUALS_FLAT(station_ready, 1, STATION_COUNT);
+    wire `ARRAY(station_value, SIZE, STATION_COUNT);
+    `NORMAL_EQUALS_FLAT(station_value, SIZE, STATION_COUNT);
+    reg `ARRAY(station_is_asserting, 1, STATION_COUNT);
+    `FLAT_EQUALS_NORMAL(station_is_asserting, 1, STATION_COUNT);
 
     integer i;
     integer j;
@@ -32,19 +38,19 @@ module BusArbiter
         for (i = 0; i < BUS_COUNT; i = i + 1) begin
             bus_asserted[i] = 0;
             bus_source[i] = 0;
+            bus_value[i] = 0;
         end
 
         for (i = 0; i < STATION_COUNT; i = i + 1) begin
             station_is_asserting[i] = 0;
 
-            if (station_ready[i]) begin
-                for (j = 0; j < BUS_COUNT; j = j + 1) begin
-                    if (!bus_asserted[j] && !station_is_asserting[i]) begin
-                        station_is_asserting[i] = 1;
+            for (j = 0; j < BUS_COUNT; j = j + 1) begin
+                if (station_ready[i] && !station_is_asserting[i] && !bus_asserted[j]) begin
+                    station_is_asserting[i] = 1;
 
-                        bus_asserted[j] = 1;
-                        bus_source[j] = i[STATION_INDEX_SIZE - 1 : 0];
-                    end
+                    bus_asserted[j] = 1;
+                    bus_source[j] = i[STATION_INDEX_SIZE - 1 : 0];
+                    bus_value[j] = station_value[i];
                 end
             end
         end

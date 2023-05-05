@@ -1,246 +1,710 @@
-module CPU(
-    input wire clock,
-    input wire reset,
-    output reg [31 : 0]memory_address,
-    input wire [31 : 0]memory_data_in,
-    output reg [31 : 0]memory_data_out,
-    output reg [1 : 0]memory_data_size,
-    output reg memory_enable,
-    output reg memory_operation,
-    input wire memory_ready
+module CPU (
+    input clock,
+    input reset,
+
+    output memory_enable,
+    output memory_operation,
+    input memory_ready,
+    output [1 : 0]memory_data_size,
+    output [SIZE - 1 : 0]memory_address,
+    input [SIZE - 1 : 0]memory_data_in,
+    output [SIZE - 1 : 0]memory_data_out
 );
+    genvar flatten_i;
+    genvar genvar_i;
+
+    localparam SIZE = 32;
+
+    localparam INTEGER_UNIT_COUNT = 4;
+    localparam FIRST_INTEGER_UNIT_STATION = 0;
+    localparam INTEGER_UNIT_INDEX_SIZE = $clog2(INTEGER_UNIT_COUNT);
+
+    localparam MULTIPLIER_COUNT = 2;
+    localparam FIRST_MULTIPLIER_STATION = INTEGER_UNIT_COUNT;
+    localparam MULTIPLIER_INDEX_SIZE = $clog2(MULTIPLIER_COUNT);
+
+    localparam MEMORY_UNIT_STATION = FIRST_MULTIPLIER_STATION + MULTIPLIER_COUNT;
+
+    localparam STATION_COUNT = MEMORY_UNIT_STATION + 1;
+    localparam STATION_INDEX_SIZE = $clog2(STATION_COUNT);
+
+    localparam BUS_COUNT = 2;
+    localparam BUS_INDEX_SIZE = $clog2(BUS_COUNT);
+
+    localparam REGISTER_COUNT = 31;
+    localparam REGISTER_INDEX_SIZE = $clog2(REGISTER_COUNT);
+
+    localparam REGISTER_READ_COUNT = 2;
+    localparam REGISTER_WRITE_COUNT = BUS_COUNT + 1;
+
+    localparam MEMORY_ACCESSOR_COUNT = 2;
+
     reg halted;
 
-    reg instruction_load_waiting;
+    reg should_halt;
+
     reg instruction_load_loaded;
     reg instruction_load_canceling;
-    reg [31 : 0]instruction_load_program_counter;
+    reg [SIZE - 1 : 0]instruction_load_program_counter;
+    reg instruction_load_memory_enable;
+    reg instruction_load_memory_operation;
+    wire instruction_load_memory_ready;
+    reg [1 : 0]instruction_load_memory_data_size;
+    reg [SIZE - 1 : 0]instruction_load_memory_address;
+    wire [SIZE - 1 : 0]instruction_load_memory_data_in;
+
+    assign memory_arbiter_accessor_memory_enable[1] = instruction_load_memory_enable;
+    assign memory_arbiter_accessor_memory_operation[1] = instruction_load_memory_operation;
+    assign instruction_load_memory_ready = memory_arbiter_accessor_memory_ready[1];
+    assign memory_arbiter_accessor_memory_data_size[1] = instruction_load_memory_data_size;
+    assign memory_arbiter_accessor_memory_address[1] = instruction_load_memory_address;
+    assign instruction_load_memory_data_in = memory_arbiter_accessor_memory_data_in[1];
+    assign memory_arbiter_accessor_memory_data_out[1] = 0;
 
     reg [31 : 0]instruction;
-    reg [31 : 0]instruction_program_counter;
+    reg [SIZE - 1 : 0]instruction_program_counter;
 
-    wire [6 : 0]opcode = instruction[6 : 0];
+    wire decoder_valid_instruction;
+    wire [4 : 0]decoder_source_1_register_index;
+    wire decoder_source_2_is_immediate;
+    wire [4 : 0]decoder_source_2_register_index;
+    wire [31 : 0]decoder_source_2_immediate_value;
+    wire [4 : 0]decoder_destination_register_index;
+    wire decoder_integer_unit;
+    wire [3 : 0]decoder_integer_unit_operation;
+    wire decoder_multiplier;
+    wire [1 : 0]decoder_multiplier_operation;
+    wire decoder_multiplier_source_1_signed;
+    wire decoder_multiplier_source_2_signed;
+    wire decoder_multiplier_upper_result;
+    wire decoder_load_immediate;
+    wire decoder_load_immediate_add_instruction_counter;
+    wire [31 : 0]decoder_load_immediate_value;
+    wire decoder_branch;
+    wire [2 : 0]decoder_branch_condition;
+    wire [31 : 0]decoder_branch_immediate;
+    wire decoder_jump_and_link;
+    wire decoder_jump_and_link_relative;
+    wire [31 : 0]decoder_jump_and_link_immediate;
+    wire [31 : 0]decoder_jump_and_link_relative_immediate;
+    wire decoder_memory_unit;
+    wire decoder_memory_unit_operation;
+    wire [1 : 0]decoder_memory_unit_data_size;
+    wire decoder_memory_unit_signed;
+    wire [31 : 0]decoder_memory_unit_address_offset_immediate;
+    wire decoder_fence;
 
-    wire [2 : 0]function_3 = instruction[14 : 12];
-    wire [6 : 0]function_7 = instruction[31 : 25];
+    InstructionDecoder instruction_decoder (
+        .instruction(instruction),
+        .valid_instruction(decoder_valid_instruction),
+        .source_1_register_index(decoder_source_1_register_index),
+        .source_2_is_immediate(decoder_source_2_is_immediate),
+        .source_2_register_index(decoder_source_2_register_index),
+        .source_2_immediate_value(decoder_source_2_immediate_value),
+        .destination_register_index(decoder_destination_register_index),
+        .integer_unit(decoder_integer_unit),
+        .integer_unit_operation(decoder_integer_unit_operation),
+        .multiplier(decoder_multiplier),
+        .multiplier_operation(decoder_multiplier_operation),
+        .multiplier_source_1_signed(decoder_multiplier_source_1_signed),
+        .multiplier_source_2_signed(decoder_multiplier_source_2_signed),
+        .multiplier_upper_result(decoder_multiplier_upper_result),
+        .load_immediate(decoder_load_immediate),
+        .load_immediate_add_instruction_counter(decoder_load_immediate_add_instruction_counter),
+        .load_immediate_value(decoder_load_immediate_value),
+        .branch(decoder_branch),
+        .branch_condition(decoder_branch_condition),
+        .branch_immediate(decoder_branch_immediate),
+        .jump_and_link(decoder_jump_and_link),
+        .jump_and_link_relative(decoder_jump_and_link_relative),
+        .jump_and_link_immediate(decoder_jump_and_link_immediate),
+        .jump_and_link_relative_immediate(decoder_jump_and_link_relative_immediate),
+        .memory_unit(decoder_memory_unit),
+        .memory_unit_operation(decoder_memory_unit_operation),
+        .memory_unit_data_size(decoder_memory_unit_data_size),
+        .memory_unit_signed(decoder_memory_unit_signed),
+        .memory_unit_address_offset_immediate(decoder_memory_unit_address_offset_immediate),
+        .fence(decoder_fence)
+    );
 
-    wire [4 : 0]source_1_register_index = instruction[19 : 15];
-    wire [4 : 0]source_2_register_index = instruction[24 : 20];
-    wire [4 : 0]destination_register_index = instruction[11 : 7];
-    
-    wire [31 : 0]source_1_register_value = source_1_register_index == 0 ? 0 : register_values[source_1_register_index - 1];
-    wire [31 : 0]source_2_register_value = source_2_register_index == 0 ? 0 : register_values[source_2_register_index - 1];
+    reg load_next_instruction;
+    reg cancel_loading_instruction;
+    reg [SIZE - 1 : 0]next_instruction_load_program_counter;
+    reg set_register_waiting[0 : 30];
+    reg [STATION_INDEX_SIZE - 1 : 0]next_register_station_index[0 : 30];
+    reg reset_register_waiting[0 : 30];
 
-    wire [31 : 0]immediate = {{21{instruction[31]}}, instruction[30 : 20]};
-    wire [31 : 0]immediate_store = {{21{instruction[31]}}, instruction[30 : 25], instruction[11 : 7]};
-    wire [31 : 0]immediate_branch = {{20{instruction[31]}}, instruction[7], instruction[30 : 25], instruction[11 : 8], 1'b0};
-    wire [19 : 0]immediate_upper = instruction[31 : 12];
-    wire [31 : 0]immediate_jump = {{12{instruction[31]}}, instruction[19 : 12], instruction[20], instruction[30 : 21], 1'b0};
+    reg unoccupied_integer_unit_found;
+    reg [INTEGER_UNIT_INDEX_SIZE - 1 : 0]unoccupied_integer_unit_index;
+    wire [STATION_INDEX_SIZE - 1 : 0]unoccupied_integer_unit_station = FIRST_INTEGER_UNIT_STATION + {{(STATION_INDEX_SIZE -  INTEGER_UNIT_INDEX_SIZE){1'b0}}, unoccupied_integer_unit_index};
+    reg unoccupied_multiplier_found;
+    reg [MULTIPLIER_INDEX_SIZE - 1 : 0]unoccupied_multiplier_index;
+    wire [STATION_INDEX_SIZE - 1 : 0]unoccupied_multiplier_station = FIRST_MULTIPLIER_STATION + {{(STATION_INDEX_SIZE -  MULTIPLIER_INDEX_SIZE){1'b0}}, unoccupied_multiplier_index};
+    reg source_1_on_bus;
+    reg [SIZE - 1 : 0]source_1_bus_value;
+    reg source_2_on_bus;
+    reg [SIZE - 1 : 0]source_2_bus_value;
+    wire [SIZE - 1 : 0]branch_destination = instruction_program_counter + decoder_branch_immediate;
+    reg branch_result;
+    reg [SIZE - 1 : 0]jump_and_link_destination;
 
-    localparam alu_count = 4;
+    wire `ARRAY(bus_asserted, 1, BUS_COUNT);
+    wire `FLAT_ARRAY(bus_asserted, 1, BUS_COUNT);
+    `NORMAL_EQUALS_FLAT(bus_asserted, 1, BUS_COUNT);
+    wire `ARRAY(bus_source, STATION_INDEX_SIZE, BUS_COUNT);
+    wire `FLAT_ARRAY(bus_source, STATION_INDEX_SIZE, BUS_COUNT);
+    `NORMAL_EQUALS_FLAT(bus_source, STATION_INDEX_SIZE, BUS_COUNT);
+    wire `ARRAY(bus_value, SIZE, BUS_COUNT);
+    wire `FLAT_ARRAY(bus_value, SIZE, BUS_COUNT);
+    `NORMAL_EQUALS_FLAT(bus_value, SIZE, BUS_COUNT);
 
-    localparam multiplier_count = 2;
+    reg register_waiting[0 : 30];
+    reg [STATION_INDEX_SIZE - 1 : 0]register_station_index[0 : 30];
 
-    localparam memory_unit_count = 1;
+    reg `ARRAY(register_read_index, REGISTER_INDEX_SIZE, REGISTER_READ_COUNT);
+    wire `FLAT_ARRAY(register_read_index, REGISTER_INDEX_SIZE, REGISTER_READ_COUNT);
+    `FLAT_EQUALS_NORMAL(register_read_index, REGISTER_INDEX_SIZE, REGISTER_READ_COUNT);
+    wire `ARRAY(register_read_data, SIZE, REGISTER_READ_COUNT);
+    wire `FLAT_ARRAY(register_read_data, SIZE, REGISTER_READ_COUNT);
+    `NORMAL_EQUALS_FLAT(register_read_data, SIZE, REGISTER_READ_COUNT);
+    reg `ARRAY(register_write_enable, 1, REGISTER_WRITE_COUNT);
+    wire `FLAT_ARRAY(register_write_enable, 1, REGISTER_WRITE_COUNT);
+    `FLAT_EQUALS_NORMAL(register_write_enable, 1, REGISTER_WRITE_COUNT);
+    reg `ARRAY(register_write_index, REGISTER_INDEX_SIZE, REGISTER_WRITE_COUNT);
+    wire `FLAT_ARRAY(register_write_index, REGISTER_INDEX_SIZE, REGISTER_WRITE_COUNT);
+    `FLAT_EQUALS_NORMAL(register_write_index, REGISTER_INDEX_SIZE, REGISTER_WRITE_COUNT);
+    reg `ARRAY(register_write_data, SIZE, REGISTER_WRITE_COUNT);
+    wire `FLAT_ARRAY(register_write_data, SIZE, REGISTER_WRITE_COUNT);
+    `FLAT_EQUALS_NORMAL(register_write_data, SIZE, REGISTER_WRITE_COUNT);
 
-    localparam first_alu_station = 0;
-    localparam first_multiplier_station = first_alu_station + alu_count;
-    localparam first_memory_unit_station = first_multiplier_station + multiplier_count;
+    RegisterFile #(
+        .SIZE(SIZE),
+        .REGISTER_COUNT(31),
+        .READ_COUNT(REGISTER_READ_COUNT),
+        .WRITE_COUNT(REGISTER_WRITE_COUNT)
+    ) register_file (
+        .clock(clock),
+        .reset(reset),
+        .read_index_flat(register_read_index_flat),
+        .read_data_flat(register_read_data_flat),
+        .write_enable_flat(register_write_enable_flat),
+        .write_index_flat(register_write_index_flat),
+        .write_data_flat(register_write_data_flat)
+    );
 
-    localparam station_count = first_memory_unit_station + memory_unit_count;
-    localparam station_index_size = $clog2((station_count - 1) + 1);
+    reg source_1_present;
+    wire [STATION_INDEX_SIZE - 1 : 0]source_1_source = register_station_index[decoder_source_1_register_index - 1];
+    wire source_1_waiting = register_waiting[decoder_source_1_register_index - 1];
+    reg [SIZE - 1 : 0]source_1_value;
+    reg source_2_present;
+    wire [STATION_INDEX_SIZE - 1 : 0]source_2_source = register_station_index[decoder_source_2_register_index - 1];
+    wire source_2_waiting = register_waiting[decoder_source_2_register_index - 1];
+    reg [SIZE - 1 : 0]source_2_value;
+    wire destination_waiting = register_waiting[decoder_destination_register_index - 1];
 
-    reg register_busy_states[0 : 30];
-    reg [station_index_size - 1 : 0]register_station_indices[0 : 30];
-    reg [31 : 0]register_values[0 : 30];
+    wire `ARRAY(station_ready, 1, STATION_COUNT);
+    wire `FLAT_ARRAY(station_ready, 1, STATION_COUNT);
+    `FLAT_EQUALS_NORMAL(station_ready, 1, STATION_COUNT);
+    wire `ARRAY(station_value, SIZE, STATION_COUNT);
+    wire `FLAT_ARRAY(station_value, SIZE, STATION_COUNT);
+    `FLAT_EQUALS_NORMAL(station_value, SIZE, STATION_COUNT);
+    wire `ARRAY(station_is_asserting, 1, STATION_COUNT);
+    wire `FLAT_ARRAY(station_is_asserting, 1, STATION_COUNT);
+    `NORMAL_EQUALS_FLAT(station_is_asserting, 1, STATION_COUNT);
 
-    reg [4 : 0]alu_operations[0 : alu_count - 1];
-    reg alu_occupied_states[0 : alu_count - 1];
-    reg [station_index_size - 1 : 0]alu_source_1_indices[0 : alu_count - 1];
-    reg [station_index_size - 1 : 0]alu_source_2_indices[0 : alu_count - 1];
-    reg alu_source_1_loaded_states[0 : alu_count - 1];
-    reg alu_source_2_loaded_states[0 : alu_count - 1];
-    reg [31 : 0]alu_source_1_values[0 : alu_count - 1];
-    reg [31 : 0]alu_source_2_values[0 : alu_count - 1];
+    reg integer_unit_set_occupied[0 : INTEGER_UNIT_COUNT - 1];
+    wire integer_unit_occupied[0 : INTEGER_UNIT_COUNT - 1];
 
-    reg [1 : 0]multiplier_operations[0 : multiplier_count - 1];
-    reg multiplier_occupied_states[0 : multiplier_count - 1];
-    reg [station_index_size - 1 : 0]multiplier_source_1_indices[0 : multiplier_count - 1];
-    reg [station_index_size - 1 : 0]multiplier_source_2_indices[0 : multiplier_count - 1];
-    reg multiplier_source_1_loaded_states[0 : alu_count - 1];
-    reg multiplier_source_2_loaded_states[0 : alu_count - 1];
-    reg [31 : 0]multiplier_source_1_values[0 : multiplier_count - 1];
-    reg [31 : 0]multiplier_source_2_values[0 : multiplier_count - 1];
-    reg multiplier_source_1_signed_flags[0 : multiplier_count - 1];
-    reg multiplier_source_2_signed_flags[0 : multiplier_count - 1];
-    reg multiplier_upper_result_flags[0 : multiplier_count - 1];
-    reg [63 : 0]multiplier_accumulator_values[0 : multiplier_count - 1];
-    reg [63 : 0]multiplier_quotient_values[0 : multiplier_count - 1];
-    reg [6 : 0]multiplier_iterations[0 : multiplier_count - 1];
+    generate
+        for (genvar_i = 0; genvar_i < INTEGER_UNIT_COUNT; genvar_i = genvar_i + 1) begin
+            IntegerUnit #(
+                .SIZE(SIZE),
+                .STATION_INDEX_SIZE(STATION_INDEX_SIZE),
+                .BUS_COUNT(BUS_COUNT)
+            ) integer_unit (
+                .clock(clock),
+                .reset(reset),
+                .set_occupied(integer_unit_set_occupied[genvar_i]),
+                .reset_occupied(station_is_asserting[FIRST_INTEGER_UNIT_STATION + genvar_i]),
+                .operation(decoder_integer_unit_operation),
+                .preload_a_value(source_1_present),
+                .a_source(source_1_source),
+                .preloaded_a_value(source_1_value),
+                .preload_b_value(source_2_present),
+                .b_source(source_2_source),
+                .preloaded_b_value(source_2_value),
+                .occupied(integer_unit_occupied[genvar_i]),
+                .result_ready(station_ready[FIRST_INTEGER_UNIT_STATION + genvar_i]),
+                .result(station_value[FIRST_INTEGER_UNIT_STATION + genvar_i]),
+                .bus_asserted_flat(bus_asserted_flat),
+                .bus_source_flat(bus_source_flat),
+                .bus_value_flat(bus_value_flat)
+            );
+        end
+    endgenerate
 
-    reg memory_unit_occupied;
-    reg memory_unit_waiting;
-    reg memory_unit_operation;
-    reg memory_unit_address_loaded;
-    reg [station_index_size - 1 : 0]memory_unit_address_index;
-    reg [31 : 0]memory_unit_address_value;
-    reg [31 : 0]memory_unit_address_offset;
-    reg [1 : 0]memory_unit_data_size;
-    reg memory_unit_signed;
-    reg [station_index_size - 1 : 0]memory_unit_source_index;
-    reg memory_unit_source_loaded;
-    reg [31 : 0]memory_unit_source_value;
+    reg multiplier_set_occupied[0 : MULTIPLIER_COUNT - 1];
+    wire multiplier_occupied[0 : MULTIPLIER_COUNT - 1];
 
-    localparam bus_count = 2;
+    generate
+        for (genvar_i = 0; genvar_i < MULTIPLIER_COUNT; genvar_i = genvar_i + 1) begin
+            Multiplier #(
+                .SIZE(SIZE),
+                .STATION_INDEX_SIZE(STATION_INDEX_SIZE),
+                .BUS_COUNT(BUS_COUNT)
+            ) multiplier (
+                .clock(clock),
+                .reset(reset),
+                .set_occupied(multiplier_set_occupied[genvar_i]),
+                .reset_occupied(station_is_asserting[FIRST_MULTIPLIER_STATION + genvar_i]),
+                .operation(decoder_multiplier_operation),
+                .upper_result(decoder_multiplier_upper_result),
+                .a_signed(decoder_multiplier_source_1_signed),
+                .preload_a_value(source_1_present),
+                .a_source(source_1_source),
+                .preloaded_a_value(source_1_value),
+                .b_signed(decoder_multiplier_source_2_signed),
+                .preload_b_value(source_2_present),
+                .b_source(source_2_source),
+                .preloaded_b_value(source_2_value),
+                .occupied(multiplier_occupied[genvar_i]),
+                .result_ready(station_ready[FIRST_MULTIPLIER_STATION + genvar_i]),
+                .result(station_value[FIRST_MULTIPLIER_STATION + genvar_i]),
+                .bus_asserted_flat(bus_asserted_flat),
+                .bus_source_flat(bus_source_flat),
+                .bus_value_flat(bus_value_flat)
+            );
+        end
+    endgenerate
 
-    reg bus_asserted_states[0 : bus_count - 1];
-    reg [station_index_size - 1 : 0]bus_sources[0 : bus_count - 1];
-    reg [31 : 0]bus_values[0 : bus_count - 1];
+    reg memory_unit_set_occupied;
+    wire memory_unit_occupied;
 
-    // For loop / iteration registers
+    MemoryUnit #(
+        .SIZE(SIZE),
+        .STATION_INDEX_SIZE(STATION_INDEX_SIZE),
+        .BUS_COUNT(BUS_COUNT)
+    ) memory_unit (
+        .clock(clock),
+        .reset(reset),
+        .set_occupied(memory_unit_set_occupied),
+        .reset_occupied(station_is_asserting[MEMORY_UNIT_STATION]),
+        .operation(decoder_memory_unit_operation),
+        .data_size(decoder_memory_unit_data_size),
+        .is_signed(decoder_memory_unit_signed),
+        .preload_address_value(source_1_present),
+        .address_source(source_1_source),
+        .preloaded_address_value(source_1_value),
+        .address_offset(decoder_memory_unit_address_offset_immediate),
+        .preload_data_value(source_2_present),
+        .data_source(source_2_source),
+        .preloaded_data_value(source_2_value),
+        .occupied(memory_unit_occupied),
+        .result_ready(station_ready[MEMORY_UNIT_STATION]),
+        .result(station_value[MEMORY_UNIT_STATION]),
+        .bus_asserted_flat(bus_asserted_flat),
+        .bus_source_flat(bus_source_flat),
+        .bus_value_flat(bus_value_flat),
+        .memory_enable(memory_arbiter_accessor_memory_enable[0]),
+        .memory_operation(memory_arbiter_accessor_memory_operation[0]),
+        .memory_ready(memory_arbiter_accessor_memory_ready[0]),
+        .memory_data_size(memory_arbiter_accessor_memory_data_size[0]),
+        .memory_address(memory_arbiter_accessor_memory_address[0]),
+        .memory_data_in(memory_arbiter_accessor_memory_data_in[0]),
+        .memory_data_out(memory_arbiter_accessor_memory_data_out[0])
+    );
+
+    BusArbiter #(
+        .SIZE(SIZE),
+        .STATION_COUNT(STATION_COUNT),
+        .BUS_COUNT(BUS_COUNT)
+    ) bus_arbiter (
+        .bus_asserted_flat(bus_asserted_flat),
+        .bus_source_flat(bus_source_flat),
+        .bus_value_flat(bus_value_flat),
+        .station_ready_flat(station_ready_flat),
+        .station_value_flat(station_value_flat),
+        .station_is_asserting_flat(station_is_asserting_flat)
+    );
+
+    wire `ARRAY(memory_arbiter_accessor_memory_enable, 1, MEMORY_ACCESSOR_COUNT);
+    wire `FLAT_ARRAY(memory_arbiter_accessor_memory_enable, 1, MEMORY_ACCESSOR_COUNT);
+    `FLAT_EQUALS_NORMAL(memory_arbiter_accessor_memory_enable, 1, MEMORY_ACCESSOR_COUNT);
+    wire `ARRAY(memory_arbiter_accessor_memory_operation, 1, MEMORY_ACCESSOR_COUNT);
+    wire `FLAT_ARRAY(memory_arbiter_accessor_memory_operation, 1, MEMORY_ACCESSOR_COUNT);
+    `FLAT_EQUALS_NORMAL(memory_arbiter_accessor_memory_operation, 1, MEMORY_ACCESSOR_COUNT);
+    wire `ARRAY(memory_arbiter_accessor_memory_ready, 1, MEMORY_ACCESSOR_COUNT);
+    wire `FLAT_ARRAY(memory_arbiter_accessor_memory_ready, 1, MEMORY_ACCESSOR_COUNT);
+    `NORMAL_EQUALS_FLAT(memory_arbiter_accessor_memory_ready, 1, MEMORY_ACCESSOR_COUNT);
+    wire `ARRAY(memory_arbiter_accessor_memory_data_size, 2, MEMORY_ACCESSOR_COUNT);
+    wire `FLAT_ARRAY(memory_arbiter_accessor_memory_data_size, 2, MEMORY_ACCESSOR_COUNT);
+    `FLAT_EQUALS_NORMAL(memory_arbiter_accessor_memory_data_size, 2, MEMORY_ACCESSOR_COUNT);
+    wire `ARRAY(memory_arbiter_accessor_memory_address, SIZE, MEMORY_ACCESSOR_COUNT);
+    wire `FLAT_ARRAY(memory_arbiter_accessor_memory_address, SIZE, MEMORY_ACCESSOR_COUNT);
+    `FLAT_EQUALS_NORMAL(memory_arbiter_accessor_memory_address, SIZE, MEMORY_ACCESSOR_COUNT);
+    wire `ARRAY(memory_arbiter_accessor_memory_data_in, SIZE, MEMORY_ACCESSOR_COUNT);
+    wire `FLAT_ARRAY(memory_arbiter_accessor_memory_data_in, SIZE, MEMORY_ACCESSOR_COUNT);
+    `NORMAL_EQUALS_FLAT(memory_arbiter_accessor_memory_data_in, SIZE, MEMORY_ACCESSOR_COUNT);
+    wire `ARRAY(memory_arbiter_accessor_memory_data_out, SIZE, MEMORY_ACCESSOR_COUNT);
+    wire `FLAT_ARRAY(memory_arbiter_accessor_memory_data_out, SIZE, MEMORY_ACCESSOR_COUNT);
+    `FLAT_EQUALS_NORMAL(memory_arbiter_accessor_memory_data_out, SIZE, MEMORY_ACCESSOR_COUNT);
+
+    MemoryArbiter #(
+        .SIZE(SIZE),
+        .ACCESSOR_COUNT(MEMORY_ACCESSOR_COUNT)
+    ) memory_arbiter (
+        .clock(clock),
+        .reset(reset),
+        .memory_enable(memory_enable),
+        .memory_operation(memory_operation),
+        .memory_ready(memory_ready),
+        .memory_data_size(memory_data_size),
+        .memory_address(memory_address),
+        .memory_data_in(memory_data_in),
+        .memory_data_out(memory_data_out),
+        .accessor_memory_enable_flat(memory_arbiter_accessor_memory_enable_flat),
+        .accessor_memory_operation_flat(memory_arbiter_accessor_memory_operation_flat),
+        .accessor_memory_ready_flat(memory_arbiter_accessor_memory_ready_flat),
+        .accessor_memory_data_size_flat(memory_arbiter_accessor_memory_data_size_flat),
+        .accessor_memory_address_flat(memory_arbiter_accessor_memory_address_flat),
+        .accessor_memory_data_in_flat(memory_arbiter_accessor_memory_data_in_flat),
+        .accessor_memory_data_out_flat(memory_arbiter_accessor_memory_data_out_flat)
+    );
+
     integer i;
     integer j;
-    integer iteration_helper;
 
-    // Blocking-assignment registers, the values do not pass from one clock cycle to another
+    always @(*) begin
+        should_halt = 0;
 
-    reg unoccupied_alu_found;
+        // Instruction Scheduling
 
-    reg unoccupied_multiplier_found;
+        unoccupied_integer_unit_found = 0;
+        unoccupied_integer_unit_index = 0;
 
-    reg bus_to_be_asserted[0 : bus_count - 1];
+        for (i = 0; i < INTEGER_UNIT_COUNT; i = i + 1) begin
+            if (!unoccupied_integer_unit_found && !integer_unit_occupied[i]) begin
+                unoccupied_integer_unit_found = 1;
+                unoccupied_integer_unit_index = i[INTEGER_UNIT_INDEX_SIZE - 1 : 0];
+            end
+        end
 
-    reg instruction_load_to_begin;
+        unoccupied_multiplier_found = 0;
+        unoccupied_multiplier_index = 0;
 
-    reg value_on_a_bus;
+        for (i = 0; i < MULTIPLIER_COUNT; i = i + 1) begin
+            if (!unoccupied_multiplier_found && !multiplier_occupied[i]) begin
+                unoccupied_multiplier_found = 1;
+                unoccupied_multiplier_index = i[MULTIPLIER_INDEX_SIZE - 1 : 0];
+            end
+        end
 
-    reg [63 : 0]effective_multiplier_source_1;
-    reg [63 : 0]effective_multiplier_source_2;
+        source_1_on_bus = 0;
+        source_1_bus_value = 0;
+        source_2_on_bus = 0;
+        source_2_bus_value = 0;
 
-    reg [6 : 0]sub_cycle_multiplier_iteration;
-    reg [63 : 0]sub_cycle_multiplier_accumulator;
-    reg [63 : 0]sub_cycle_multiplier_quotient;
+        for (i = 0; i < BUS_COUNT; i = i + 1) begin
+            if (!source_1_on_bus && bus_asserted[i] && bus_source[i] == source_1_source) begin
+                source_1_on_bus = 1;
+                source_1_bus_value = bus_value[i];
+            end
 
-    always @(posedge clock or posedge reset) begin
+            if (!source_2_on_bus && bus_asserted[i] && bus_source[i] == source_2_source) begin
+                source_2_on_bus = 1;
+                source_2_bus_value = bus_value[i];
+            end
+        end
+
+        register_read_index[0] = 0;
+
+        source_1_value = 0;
+
+        if (decoder_source_1_register_index == 0) begin
+            source_1_present = 1;
+        end else begin
+            if (source_1_waiting) begin
+                if (source_1_on_bus) begin
+                    source_1_present = 1;
+                    source_1_value = source_1_bus_value;
+                end else begin
+                    source_1_present = 0;
+                end
+            end else begin
+                source_1_present = 1;
+                register_read_index[0] = decoder_source_1_register_index - 1;
+                source_1_value = register_read_data[0];
+            end
+        end
+
+        register_read_index[1] = 0;
+
+        source_2_value = 0;
+
+        if (decoder_source_2_is_immediate) begin
+            source_2_present = 1;
+            source_2_value = decoder_source_2_immediate_value;
+        end else begin
+            if (decoder_source_2_register_index == 0) begin
+                source_2_present = 1;
+            end else begin
+                if (source_2_waiting) begin
+                    if (source_2_on_bus) begin
+                        source_2_present = 1;
+                        source_2_value = source_2_bus_value;
+                    end else begin
+                        source_2_present = 0;
+                    end
+                end else begin
+                    source_2_present = 1;
+                    register_read_index[1] = decoder_source_2_register_index - 1;
+                    source_2_value = register_read_data[1];
+                end
+            end
+        end
+
+        if (decoder_destination_register_index != 0) begin
+            register_write_index[BUS_COUNT] = decoder_destination_register_index - 1;
+        end else begin
+            register_write_index[BUS_COUNT] = 0;
+        end
+        register_write_enable[BUS_COUNT] = 0;
+        register_write_data[BUS_COUNT] = 0;
+
+        case (decoder_branch_condition)
+            0 : begin // BEQ
+                branch_result = source_1_value == source_2_value;
+            end
+
+            1 : begin // BNE
+                branch_result = source_1_value != source_2_value;
+            end
+
+            2 : begin // BLT
+                branch_result = $signed(source_1_value) < $signed(source_2_value);
+            end
+
+            3 : begin // BGE
+                branch_result = $signed(source_1_value) >= $signed(source_2_value);
+            end
+
+            4 : begin // BLTU
+                branch_result = source_1_value < source_2_value;
+            end
+
+            5 : begin // BGEU
+                branch_result = source_1_value >= source_2_value;
+            end
+
+            default : begin
+                branch_result = 0;
+            end
+        endcase
+
+        if (decoder_jump_and_link_relative) begin
+            jump_and_link_destination = (
+                decoder_jump_and_link_relative_immediate +
+                source_1_value
+            ) & ~'b1;
+        end else begin
+            jump_and_link_destination = instruction_program_counter + decoder_jump_and_link_immediate;
+        end
+
+        for (i = 0; i < INTEGER_UNIT_COUNT; i = i + 1) begin
+            integer_unit_set_occupied[i] = 0;
+        end
+
+        for (i = 0; i < MULTIPLIER_COUNT; i = i + 1) begin
+            multiplier_set_occupied[i] = 0;
+        end
+
+        memory_unit_set_occupied = 0;
+
+        for (i = 0; i < 31; i = i + 1) begin
+            set_register_waiting[i] = 0;
+            next_register_station_index[i] = 0;
+        end
+
+        load_next_instruction = 0;
+        cancel_loading_instruction = 0;
+        next_instruction_load_program_counter = 0;
+
+        if (instruction_load_loaded) begin
+            if (decoder_valid_instruction) begin
+                if (decoder_integer_unit) begin
+                    if (decoder_destination_register_index == 0) begin
+                        load_next_instruction = 1;
+                    end else if (unoccupied_integer_unit_found && !destination_waiting) begin
+                        load_next_instruction = 1;
+
+                        integer_unit_set_occupied[unoccupied_integer_unit_index] = 1;
+
+                        set_register_waiting[decoder_destination_register_index - 1] = 1;
+                        next_register_station_index[decoder_destination_register_index - 1] = unoccupied_integer_unit_station;
+                    end
+                end else if (decoder_multiplier) begin
+                    if (decoder_destination_register_index == 0) begin
+                        load_next_instruction = 1;
+                    end else if (unoccupied_multiplier_found && !destination_waiting) begin
+                        load_next_instruction = 1;
+
+                        multiplier_set_occupied[unoccupied_multiplier_index] = 1;
+
+                        set_register_waiting[decoder_destination_register_index - 1] = 1;
+                        next_register_station_index[decoder_destination_register_index - 1] = unoccupied_multiplier_station;
+                    end
+                end else if (decoder_load_immediate) begin
+                    if (decoder_destination_register_index == 0) begin
+                        load_next_instruction = 1;
+                    end else if(!destination_waiting) begin
+                        load_next_instruction = 1;
+
+                        register_write_enable[BUS_COUNT] = 1;
+
+                        if(decoder_load_immediate_add_instruction_counter) begin
+                            register_write_data[BUS_COUNT] = instruction_program_counter + decoder_load_immediate_value;
+                        end else begin
+                            register_write_data[BUS_COUNT] = decoder_load_immediate_value;
+                        end
+                    end
+                end else if (decoder_branch) begin
+                    if (
+                        (decoder_source_1_register_index == 0 || !source_1_waiting) &&
+                        (decoder_source_2_register_index == 0 || !source_2_waiting)
+                    ) begin
+                        load_next_instruction = 1;
+
+                        if (branch_result) begin
+                            cancel_loading_instruction = 1;
+
+                            if (branch_destination[1 : 0] == 0) begin
+                                next_instruction_load_program_counter = branch_destination;
+                            end else begin
+                                should_halt = 1;
+                            end
+                        end
+                    end
+                end else if (decoder_jump_and_link) begin
+                    if (decoder_destination_register_index == 0 || !destination_waiting) begin
+                        load_next_instruction = 1;
+                        cancel_loading_instruction = 1;
+
+                        if (decoder_destination_register_index != 0) begin
+                            register_write_enable[BUS_COUNT] = 1;
+                            register_write_data[BUS_COUNT] = instruction_program_counter + 4;
+                        end
+
+                        if (jump_and_link_destination[1 : 0] == 0) begin
+                            next_instruction_load_program_counter = jump_and_link_destination;
+                        end else begin
+                            should_halt = 1;
+                        end
+                    end
+                end else if (decoder_memory_unit) begin
+                    if (decoder_memory_unit_operation == 0) begin
+                        load_next_instruction = 1;
+
+                        memory_unit_set_occupied = 1;
+                    end else if(decoder_destination_register_index == 0 || !destination_waiting) begin
+                        load_next_instruction = 1;
+
+                        memory_unit_set_occupied = 1;
+
+                        if (decoder_destination_register_index != 0) begin
+                            set_register_waiting[decoder_destination_register_index - 1] = 1;
+                            next_register_station_index[decoder_destination_register_index - 1] = MEMORY_UNIT_STATION;
+                        end
+                    end
+                end else if (decoder_fence) begin
+                    if (!memory_unit_occupied) begin
+                        load_next_instruction = 1;
+                        cancel_loading_instruction = 1;
+                        next_instruction_load_program_counter = instruction_load_program_counter;
+                    end
+                end else begin
+                    should_halt = 1;
+                end
+            end else begin
+                should_halt = 1;
+            end
+        end
+
+        // Register Writeback
+
+        for (i = 0; i < BUS_COUNT; i = i + 1) begin
+            register_write_enable[i] = 0;
+            register_write_index[i] = 0;
+            register_write_data[i] = 0;
+        end
+
+        // Only one register can be written to by each bus, and each register can only be written to by one bus
+        for (i = 0; i < 31; i = i + 1) begin
+            reset_register_waiting[i] = 0;
+
+            for (j = 0; j < BUS_COUNT; j = j + 1) begin
+                if (
+                    register_waiting[i] &&
+                    !reset_register_waiting[i] &&
+                    bus_asserted[j] &&
+                    bus_source[j] == register_station_index[i] &&
+                    !register_write_enable[j]
+                ) begin
+                    reset_register_waiting[i] = 1;
+
+                    register_write_enable[j] = 1;
+                    register_write_index[j] = i[REGISTER_INDEX_SIZE - 1 : 0];
+                    register_write_data[j] = bus_value[j];
+                end
+            end
+        end
+    end
+
+    always @(posedge clock) begin
         if (reset) begin
-            `ifdef SIMULATION
-            $display("Reset");
-            `endif
-
-            memory_enable <= 0;
-
             halted <= 0;
 
-            instruction_load_waiting <= 0;
             instruction_load_loaded <= 0;
             instruction_load_canceling <= 0;
             instruction_load_program_counter <= 0;
+            instruction_load_memory_enable <= 0;
 
             for (i = 0; i < 31; i = i + 1) begin
-                register_busy_states[i] <= 0;
-            end
-
-            for (i = 0; i < alu_count; i = i + 1) begin
-                alu_occupied_states[i] <= 0;
-            end
-
-            for (i = 0; i < multiplier_count; i = i + 1) begin
-                multiplier_occupied_states[i] <= 0;
-            end
-
-            memory_unit_occupied <= 0;
-            memory_unit_waiting <= 0;
-
-            for (i = 0; i < bus_count; i = i + 1) begin
-                bus_asserted_states[i] <= 0;
+                register_waiting[i] <= 0;
             end
         end else if(!halted) begin
-            `ifdef SIMULATION
-            `ifdef VERBOSE
-            for (i = 0; i < 31; i = i + 1) begin
-                $display("Reg %d: %d, %d, %d", i + 1, register_busy_states[i], register_station_indices[i], register_values[i]);
+            if (should_halt) begin
+                halted <= 1;
+
+                `ifdef SIMULATION
+                $stop();
+                `endif
             end
-
-            $display("Instruction Load: %d, %d, %d", instruction_load_waiting, instruction_load_loaded, instruction_load_canceling);
-            $display("    Program Counter: %x", instruction_load_program_counter);
-            $display("    Instruction: %x", instruction);
-
-            for (i = 0; i < alu_count; i = i + 1) begin
-                $display("ALU %d: %d, %d", i, alu_occupied_states[i], alu_operations[i]);
-                $display("    Source 1: %d, %d, %d", alu_source_1_loaded_states[i], alu_source_1_indices[i], alu_source_1_values[i]);
-                $display("    Source 2: %d, %d, %d", alu_source_2_loaded_states[i], alu_source_2_indices[i], alu_source_2_values[i]);
-            end
-
-            for (i = 0; i < multiplier_count; i = i + 1) begin
-                $display("Multiplier %d: %d, %d, %d", i, multiplier_occupied_states[i], multiplier_upper_result_flags[i], multiplier_iterations[i]);
-
-                if (multiplier_source_1_signed_flags[i]) begin
-                    $display("    Source 1: %d, %d, %d, 1", multiplier_source_1_loaded_states[i], multiplier_source_1_indices[i], $signed(multiplier_source_1_values[i]));
-                end else begin
-                    $display("    Source 1: %d, %d, %d, 0", multiplier_source_1_loaded_states[i], multiplier_source_1_indices[i], multiplier_source_1_values[i]);
-                end
-
-                if (multiplier_source_2_signed_flags[i]) begin
-                    $display("    Source 2: %d, %d, %d, 1", multiplier_source_2_loaded_states[i], multiplier_source_2_indices[i], $signed(multiplier_source_2_values[i]));
-                end else begin
-                    $display("    Source 2: %d, %d, %d, 0", multiplier_source_2_loaded_states[i], multiplier_source_2_indices[i], multiplier_source_2_values[i]);
-                end
-
-                $display("    Accumulator: %d", multiplier_accumulator_values[i]);
-                $display("    Quotient: %d", multiplier_quotient_values[i]);
-            end
-
-            $display("Memory: %d, %d, %d", memory_unit_occupied, memory_unit_operation, memory_unit_waiting);
-            $display("    Address: %d, %d, %h", memory_unit_address_loaded, memory_unit_address_index, memory_unit_address_value);
-            $display("    Value: %d, %d, %d", memory_unit_source_loaded, memory_unit_source_index, memory_unit_source_value);
-
-            for (i = 0; i < multiplier_count; i = i + 1) begin
-                $display("Bus %d: %d, %d, %d", i, bus_asserted_states[i], bus_sources[i], bus_values[i]);
-            end
-            `endif
-            `endif
 
             // Instruction Load
 
-            instruction_load_to_begin = 0;
+            if (!instruction_load_memory_enable && !instruction_load_memory_ready) begin
+                instruction_load_memory_operation <= 0;
+                instruction_load_memory_address <= instruction_load_program_counter;
+                instruction_load_memory_data_size <= 2;
 
-            if (!memory_ready && !instruction_load_waiting && !instruction_load_canceling && !memory_unit_occupied) begin
-                `ifdef SIMULATION
-                $display("Instruction Load Begin");
-                `endif
-
-                memory_operation <= 0;
-                memory_address <= instruction_load_program_counter;
-                memory_data_size <= 2;
-
-                memory_enable <= 1;
-
-                instruction_load_waiting <= 1;
-
-                instruction_load_to_begin = 1;
+                instruction_load_memory_enable <= 1;
             end
 
-            if (memory_ready && instruction_load_waiting && !instruction_load_loaded && !instruction_load_canceling) begin
-                `ifdef SIMULATION
-                $display("Instruction Load End");
-                `endif
-
-                instruction <= memory_data_in;
+            if (instruction_load_memory_enable && instruction_load_memory_ready && !instruction_load_loaded && !instruction_load_canceling && !cancel_loading_instruction) begin
+                instruction <= instruction_load_memory_data_in;
                 instruction_program_counter <= instruction_load_program_counter;
 
-                memory_enable <= 0;
+                instruction_load_memory_enable <= 0;
 
-                instruction_load_waiting <= 0;
                 instruction_load_loaded <= 1;
                 instruction_load_program_counter <= instruction_load_program_counter + 4;
             end
 
             if (instruction_load_canceling) begin
-                if (instruction_load_waiting) begin
-                    if (memory_ready) begin
-                        memory_enable <= 0;
+                if (instruction_load_memory_enable) begin
+                    if (instruction_load_memory_ready) begin
+                        instruction_load_memory_enable <= 0;
 
-                        instruction_load_waiting <= 0;
                         instruction_load_canceling <= 0;
                     end
                 end else begin
@@ -248,1574 +712,24 @@ module CPU(
                 end
             end
 
-            // Instruction Decoding
-
-            if (instruction_load_loaded) begin
-                case (opcode[1 : 0])
-                    2'b11: begin // Base instruction set
-                        case (opcode[6 : 2])
-                            5'b00100 : begin // OP-IMM
-                                if (destination_register_index != 0) begin
-                                    if (!register_busy_states[destination_register_index - 1]) begin
-                                        unoccupied_alu_found = 0;
-
-                                        for (i = 0; i < alu_count; i = i + 1) begin
-                                            if (!unoccupied_alu_found && !alu_occupied_states[i]) begin
-                                                unoccupied_alu_found = 1;
-
-                                                instruction_load_loaded <= 0;
-                                                alu_occupied_states[i] <= 1;
-
-                                                if (source_1_register_index == 0) begin
-                                                    alu_source_1_loaded_states[i] <= 1;
-                                                    alu_source_1_values[i] <= 0;
-                                                end else begin
-                                                    if (register_busy_states[source_1_register_index - 1]) begin
-                                                        value_on_a_bus = 0;
-
-                                                        for (j = 0; j < bus_count; j = j + 1) begin
-                                                            if (!value_on_a_bus && bus_asserted_states[j] && bus_sources[j] == register_station_indices[source_1_register_index - 1]) begin
-                                                                alu_source_1_loaded_states[i] <= 1;
-                                                                alu_source_1_values[i] <= bus_values[j];
-
-                                                                value_on_a_bus = 1;
-                                                            end
-                                                        end
-
-                                                        if (!value_on_a_bus) begin
-                                                            alu_source_1_loaded_states[i] <= 0;
-                                                            alu_source_1_indices[i] <= register_station_indices[source_1_register_index - 1];
-                                                        end
-                                                    end else begin
-                                                        alu_source_1_loaded_states[i] <= 1;
-                                                        alu_source_1_values[i] <= register_values[source_1_register_index - 1];
-                                                    end
-                                                end
-
-                                                alu_source_2_loaded_states[i] <= 1;
-                                                alu_source_2_values[i] <= immediate;
-
-                                                register_busy_states[destination_register_index - 1] <= 1;
-                                                iteration_helper = first_alu_station + i;
-                                                register_station_indices[destination_register_index - 1] <= iteration_helper[station_index_size - 1 : 0];
-
-                                                case (function_3)
-                                                    3'b000 : begin // ADDI
-                                                        `ifdef SIMULATION
-                                                        $display("addi x%0d, x%0d, %0d", destination_register_index, source_1_register_index, $signed(immediate));
-                                                        `endif
-
-                                                        alu_operations[i] <= 0;
-                                                    end
-
-                                                    3'b010 : begin // SLTI
-                                                        `ifdef SIMULATION
-                                                        $display("slti x%0d, x%0d, %0d", destination_register_index, source_1_register_index, $signed(immediate));
-                                                        `endif
-
-                                                        alu_operations[i] <= 9;
-                                                    end
-
-                                                    3'b011 : begin // SLTIU
-                                                        `ifdef SIMULATION
-                                                        $display("sltiu x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
-                                                        `endif
-
-                                                        alu_operations[i] <= 8;
-                                                    end
-
-                                                    3'b100 : begin // XORI
-                                                        `ifdef SIMULATION
-                                                        $display("xori x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
-                                                        `endif
-
-                                                        alu_operations[i] <= 4;
-                                                    end
-
-                                                    3'b110 : begin // ORI
-                                                        `ifdef SIMULATION
-                                                        $display("ori x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
-                                                        `endif
-
-                                                        alu_operations[i] <= 2;
-                                                    end
-
-                                                    3'b111 : begin // ANDI
-                                                        `ifdef SIMULATION
-                                                        $display("andi x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
-                                                        `endif
-
-                                                        alu_operations[i] <= 3;
-                                                    end
-
-                                                    3'b001 : begin // SLLI
-                                                        if (function_7 == 7'b0000000) begin
-                                                            `ifdef SIMULATION
-                                                            $display("slli x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
-                                                            `endif
-
-                                                            alu_operations[i] <= 5;
-                                                        end else begin
-                                                            `ifdef SIMULATION
-                                                            $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
-                                                            `endif
-
-                                                            halted <= 1;
-
-                                                            `ifdef SIMULATION
-                                                            $stop();
-                                                            `endif
-                                                        end
-                                                    end
-
-                                                    3'b101 : begin
-                                                        case (function_7)
-                                                            7'b0000000: begin // SRLI
-                                                                `ifdef SIMULATION
-                                                                $display("srli x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate[4 : 0]);
-                                                                `endif
-
-                                                                alu_operations[i] <= 6;
-                                                            end
-
-                                                            7'b0100000: begin // SRAI
-                                                                `ifdef SIMULATION
-                                                                $display("srai x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate[4 : 0]);
-                                                                `endif
-
-                                                                alu_operations[i] <= 7;
-                                                            end
-
-                                                            default: begin
-                                                                `ifdef SIMULATION
-                                                                $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
-                                                                `endif
-
-                                                                halted <= 1;
-
-                                                                `ifdef SIMULATION
-                                                                $stop();
-                                                                `endif
-                                                            end
-                                                        endcase
-                                                    end
-
-                                                    default : begin
-                                                        `ifdef SIMULATION
-                                                        $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
-                                                        `endif
-
-                                                        halted <= 1;
-
-                                                        `ifdef SIMULATION
-                                                        $stop();
-                                                        `endif
-                                                    end
-                                                endcase
-                                            end
-                                        end
-                                    end
-                                end else begin
-                                    instruction_load_loaded <= 0;
-
-                                    case (function_3)
-                                        3'b000 : begin // ADDI
-                                            `ifdef SIMULATION
-                                            $display("addi x%0d, x%0d, %0d", destination_register_index, source_1_register_index, $signed(immediate));
-                                            `endif
-                                        end
-
-                                        3'b010 : begin // SLTI
-                                            `ifdef SIMULATION
-                                            $display("slti x%0d, x%0d, %0d", destination_register_index, source_1_register_index, $signed(immediate));
-                                            `endif
-                                        end
-
-                                        3'b011 : begin // SLTIU
-                                            `ifdef SIMULATION
-                                            $display("sltiu x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
-                                            `endif
-                                        end
-
-                                        3'b100 : begin // XORI
-                                            `ifdef SIMULATION
-                                            $display("xori x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
-                                            `endif
-                                        end
-
-                                        3'b110 : begin // ORI
-                                            `ifdef SIMULATION
-                                            $display("ori x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
-                                            `endif
-                                        end
-
-                                        3'b111 : begin // ANDI
-                                            `ifdef SIMULATION
-                                            $display("andi x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
-                                            `endif
-                                        end
-
-                                        3'b001 : begin // SLLI
-                                            if (function_7 == 7'b0000000) begin
-                                                `ifdef SIMULATION
-                                                $display("slli x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate);
-                                                `endif
-                                            end else begin
-                                                `ifdef SIMULATION
-                                                $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
-                                                `endif
-
-                                                halted <= 1;
-
-                                                `ifdef SIMULATION
-                                                $stop();
-                                                `endif
-                                            end
-                                        end
-
-                                        3'b101 : begin
-                                            case (function_7)
-                                                7'b0000000: begin // SRLI
-                                                    `ifdef SIMULATION
-                                                    $display("srli x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate[4 : 0]);
-                                                    `endif
-                                                end
-
-                                                7'b0100000: begin // SRAI
-                                                    `ifdef SIMULATION
-                                                    $display("srai x%0d, x%0d, %0d", destination_register_index, source_1_register_index, immediate[4 : 0]);
-                                                    `endif
-                                                end
-
-                                                default: begin
-                                                    `ifdef SIMULATION
-                                                    $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
-                                                    `endif
-
-                                                    halted <= 1;
-
-                                                    `ifdef SIMULATION
-                                                    $stop();
-                                                    `endif
-                                                end
-                                            endcase
-                                        end
-
-                                        default : begin
-                                            `ifdef SIMULATION
-                                            $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
-                                            `endif
-
-                                            halted <= 1;
-
-                                            `ifdef SIMULATION
-                                            $stop();
-                                            `endif
-                                        end
-                                    endcase
-                                end
-                            end
-
-                            5'b01100 : begin // OP
-                                case (function_7)
-                                    7'b0000001 : begin // MULDIV
-                                        if (destination_register_index != 0) begin
-                                            if (!register_busy_states[destination_register_index - 1]) begin
-                                                unoccupied_multiplier_found = 0;
-
-                                                for (i = 0; i < multiplier_count; i = i + 1) begin
-                                                    if (!unoccupied_multiplier_found && !multiplier_occupied_states[i]) begin
-                                                        unoccupied_multiplier_found = 1;
-
-                                                        instruction_load_loaded <= 0;
-
-                                                        multiplier_occupied_states[i] <= 1;
-                                                        multiplier_accumulator_values[i] <= 0;
-                                                        multiplier_quotient_values[i] <= 0;
-                                                        multiplier_iterations[i] <= 0;
-
-                                                        if (source_1_register_index == 0) begin
-                                                            multiplier_source_1_loaded_states[i] <= 1;
-                                                            multiplier_source_1_values[i] <= 0;
-                                                        end else begin
-                                                            if (register_busy_states[source_1_register_index - 1]) begin
-                                                                value_on_a_bus = 0;
-
-                                                                for (j = 0; j < bus_count; j = j + 1) begin
-                                                                    if (!value_on_a_bus && bus_asserted_states[j] && bus_sources[j] == register_station_indices[source_1_register_index - 1]) begin
-                                                                        multiplier_source_1_loaded_states[i] <= 1;
-                                                                        multiplier_source_1_values[i] <= bus_values[j];
-
-                                                                        value_on_a_bus = 1;
-                                                                    end
-                                                                end
-
-                                                                if (!value_on_a_bus) begin
-                                                                    multiplier_source_1_loaded_states[i] <= 0;
-                                                                    multiplier_source_1_indices[i] <= register_station_indices[source_1_register_index - 1];
-                                                                end
-                                                            end else begin
-                                                                multiplier_source_1_loaded_states[i] <= 1;
-                                                                multiplier_source_1_values[i] <= register_values[source_1_register_index - 1];
-                                                            end
-                                                        end
-
-                                                        if (source_2_register_index == 0) begin
-                                                            multiplier_source_2_loaded_states[i] <= 1;
-                                                            multiplier_source_2_values[i] <= 0;
-                                                        end else begin
-                                                            if (register_busy_states[source_2_register_index - 1]) begin
-                                                                value_on_a_bus = 0;
-
-                                                                for (j = 0; j < bus_count; j = j + 1) begin
-                                                                    if (!value_on_a_bus && bus_asserted_states[j] && bus_sources[j] == register_station_indices[source_2_register_index - 1]) begin
-                                                                        multiplier_source_2_loaded_states[i] <= 1;
-                                                                        multiplier_source_2_values[i] <= bus_values[j];
-
-                                                                        value_on_a_bus = 1;
-                                                                    end
-                                                                end
-
-                                                                if (!value_on_a_bus) begin
-                                                                    multiplier_source_2_loaded_states[i] <= 0;
-                                                                    multiplier_source_2_indices[i] <= register_station_indices[source_2_register_index - 1];
-                                                                end
-                                                            end else begin
-                                                                multiplier_source_2_loaded_states[i] <= 1;
-                                                                multiplier_source_2_values[i] <= register_values[source_2_register_index - 1];
-                                                            end
-                                                        end
-
-                                                        register_busy_states[destination_register_index - 1] <= 1;
-                                                        iteration_helper = first_multiplier_station + i;
-                                                        register_station_indices[destination_register_index - 1] <= iteration_helper[station_index_size - 1 : 0];
-
-                                                        case (function_3)
-                                                            3'b000 : begin // MUL
-                                                                `ifdef SIMULATION
-                                                                $display("mul x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                                `endif
-
-                                                                multiplier_operations[i] <= 0;
-                                                                multiplier_source_1_signed_flags[i] <= 0;
-                                                                multiplier_source_2_signed_flags[i] <= 0;
-                                                                multiplier_upper_result_flags[i] <= 0;
-                                                            end
-
-                                                            3'b001 : begin // MULH
-                                                                `ifdef SIMULATION
-                                                                $display("mulh x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                                `endif
-
-                                                                multiplier_operations[i] <= 0;
-                                                                multiplier_source_1_signed_flags[i] <= 1;
-                                                                multiplier_source_2_signed_flags[i] <= 1;
-                                                                multiplier_upper_result_flags[i] <= 1;
-                                                            end
-
-                                                            3'b010 : begin // MULHSU
-                                                                `ifdef SIMULATION
-                                                                $display("mulhsu x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                                `endif
-
-                                                                multiplier_operations[i] <= 0;
-                                                                multiplier_source_1_signed_flags[i] <= 1;
-                                                                multiplier_source_2_signed_flags[i] <= 0;
-                                                                multiplier_upper_result_flags[i] <= 1;
-                                                            end
-
-                                                            3'b011 : begin // MULHU
-                                                                `ifdef SIMULATION
-                                                                $display("mulhu x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                                `endif
-
-                                                                multiplier_operations[i] <= 0;
-                                                                multiplier_source_1_signed_flags[i] <= 0;
-                                                                multiplier_source_2_signed_flags[i] <= 0;
-                                                                multiplier_upper_result_flags[i] <= 1;
-                                                            end
-
-                                                            3'b100 : begin // DIV
-                                                                `ifdef SIMULATION
-                                                                $display("div x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                                `endif
-
-                                                                multiplier_operations[i] <= 1;
-                                                                multiplier_source_1_signed_flags[i] <= 1;
-                                                                multiplier_source_2_signed_flags[i] <= 1;
-                                                            end
-
-                                                            3'b101 : begin // DIVU
-                                                                `ifdef SIMULATION
-                                                                $display("divu x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                                `endif
-
-                                                                multiplier_operations[i] <= 1;
-                                                                multiplier_source_1_signed_flags[i] <= 0;
-                                                                multiplier_source_2_signed_flags[i] <= 0;
-                                                            end
-
-                                                            3'b110 : begin // REM
-                                                                `ifdef SIMULATION
-                                                                $display("rem x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                                `endif
-
-                                                                multiplier_operations[i] <= 2;
-                                                                multiplier_source_1_signed_flags[i] <= 1;
-                                                                multiplier_source_2_signed_flags[i] <= 1;
-                                                            end
-
-                                                            3'b111 : begin // REMU
-                                                                `ifdef SIMULATION
-                                                                $display("remu x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                                `endif
-
-                                                                multiplier_operations[i] <= 2;
-                                                                multiplier_source_1_signed_flags[i] <= 0;
-                                                                multiplier_source_2_signed_flags[i] <= 0;
-                                                            end
-
-                                                            default : begin
-                                                                `ifdef SIMULATION
-                                                                $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
-                                                                `endif
-
-                                                                halted <= 1;
-
-                                                                `ifdef SIMULATION
-                                                                $stop();
-                                                                `endif
-                                                            end
-                                                        endcase
-                                                    end
-                                                end
-                                            end
-                                        end else begin
-                                            instruction_load_loaded <= 0;
-
-                                            case (function_3)
-                                                    3'b000 : begin // MUL
-                                                        `ifdef SIMULATION
-                                                        $display("mul x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                        `endif
-                                                    end
-
-                                                    3'b001 : begin // MULH
-                                                        `ifdef SIMULATION
-                                                        $display("mulh x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                        `endif
-                                                    end
-
-                                                    3'b010 : begin // MULHSU
-                                                        `ifdef SIMULATION
-                                                        $display("mulhsu x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                        `endif
-                                                    end
-
-                                                    3'b011 : begin // MULHU
-                                                        `ifdef SIMULATION
-                                                        $display("mulhu x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                        `endif
-                                                    end
-
-                                                    default : begin
-                                                        `ifdef SIMULATION
-                                                        $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
-                                                        `endif
-
-                                                        halted <= 1;
-
-                                                        `ifdef SIMULATION
-                                                        $stop();
-                                                        `endif
-                                                    end
-                                            endcase
-                                        end
-                                    end
-
-                                    default : begin
-                                        if (destination_register_index != 0) begin
-                                            if (!register_busy_states[destination_register_index - 1]) begin
-                                                unoccupied_alu_found = 0;
-
-                                                for (i = 0; i < alu_count; i = i + 1) begin
-                                                    if (!unoccupied_alu_found && !alu_occupied_states[i]) begin
-                                                        unoccupied_alu_found = 1;
-
-                                                        instruction_load_loaded <= 0;
-                                                        alu_occupied_states[i] <= 1;
-
-                                                        if (source_1_register_index == 0) begin
-                                                            alu_source_1_loaded_states[i] <= 1;
-                                                            alu_source_1_values[i] <= 0;
-                                                        end else begin
-                                                            if (register_busy_states[source_1_register_index - 1]) begin
-                                                                value_on_a_bus = 0;
-
-                                                                for (j = 0; j < bus_count; j = j + 1) begin
-                                                                    if (!value_on_a_bus && bus_asserted_states[j] && bus_sources[j] == register_station_indices[source_1_register_index - 1]) begin
-                                                                        alu_source_1_loaded_states[i] <= 1;
-                                                                        alu_source_1_values[i] <= bus_values[j];
-
-                                                                        value_on_a_bus = 1;
-                                                                    end
-                                                                end
-
-                                                                if (!value_on_a_bus) begin
-                                                                    alu_source_1_loaded_states[i] <= 0;
-                                                                    alu_source_1_indices[i] <= register_station_indices[source_1_register_index - 1];
-                                                                end
-                                                            end else begin
-                                                                alu_source_1_loaded_states[i] <= 1;
-                                                                alu_source_1_values[i] <= register_values[source_1_register_index - 1];
-                                                            end
-                                                        end
-
-                                                        if (source_2_register_index == 0) begin
-                                                            alu_source_2_loaded_states[i] <= 1;
-                                                            alu_source_2_values[i] <= 0;
-                                                        end else begin
-                                                            if (register_busy_states[source_2_register_index - 1]) begin
-                                                                value_on_a_bus = 0;
-
-                                                                for (j = 0; j < bus_count; j = j + 1) begin
-                                                                    if (!value_on_a_bus && bus_asserted_states[j] && bus_sources[j] == register_station_indices[source_2_register_index - 1]) begin
-                                                                        alu_source_2_loaded_states[i] <= 1;
-                                                                        alu_source_2_values[i] <= bus_values[j];
-
-                                                                        value_on_a_bus = 1;
-                                                                    end
-                                                                end
-
-                                                                if (!value_on_a_bus) begin
-                                                                    alu_source_2_loaded_states[i] <= 0;
-                                                                    alu_source_2_indices[i] <= register_station_indices[source_2_register_index - 1];
-                                                                end
-                                                            end else begin
-                                                                alu_source_2_loaded_states[i] <= 1;
-                                                                alu_source_2_values[i] <= register_values[source_2_register_index - 1];
-                                                            end
-                                                        end
-
-                                                        register_busy_states[destination_register_index - 1] <= 1;
-                                                        iteration_helper = first_alu_station + i;
-                                                        register_station_indices[destination_register_index - 1] <= iteration_helper[station_index_size - 1 : 0];
-
-                                                        case (function_7)
-                                                            7'b0000000: begin
-                                                                case (function_3)
-                                                                    3'b000: begin // ADD
-                                                                        `ifdef SIMULATION
-                                                                        $display("add x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                                        `endif
-
-                                                                        alu_operations[i] <= 0;
-                                                                    end
-
-                                                                    3'b001 : begin // SLL
-                                                                        `ifdef SIMULATION
-                                                                        $display("sll x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                                        `endif
-
-                                                                        alu_operations[i] <= 5;
-                                                                    end
-
-                                                                    3'b010 : begin // SLT
-                                                                        `ifdef SIMULATION
-                                                                        $display("slt x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                                        `endif
-
-                                                                        alu_operations[i] <= 9;
-                                                                    end
-
-                                                                    3'b011 : begin // SLTU
-                                                                        `ifdef SIMULATION
-                                                                        $display("sltu x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                                        `endif
-
-                                                                        alu_operations[i] <= 8;
-                                                                    end
-
-                                                                    3'b100 : begin // XOR
-                                                                        `ifdef SIMULATION
-                                                                        $display("xor x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                                        `endif
-
-                                                                        alu_operations[i] <= 4;
-                                                                    end
-
-                                                                    3'b101 : begin // SRL
-                                                                        `ifdef SIMULATION
-                                                                        $display("srl x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                                        `endif
-
-                                                                        alu_operations[i] <= 6;
-                                                                    end
-
-                                                                    3'b110 : begin // OR
-                                                                        `ifdef SIMULATION
-                                                                        $display("or x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                                        `endif
-
-                                                                        alu_operations[i] <= 2;
-                                                                    end
-
-                                                                    3'b111 : begin // AND
-                                                                        `ifdef SIMULATION
-                                                                        $display("and x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                                        `endif
-
-                                                                        alu_operations[i] <= 3;
-                                                                    end
-
-                                                                    default: begin
-                                                                        `ifdef SIMULATION
-                                                                        $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
-                                                                        `endif
-
-                                                                        halted <= 1;
-
-                                                                        `ifdef SIMULATION
-                                                                        $stop();
-                                                                        `endif
-                                                                    end
-                                                                endcase
-                                                            end
-
-                                                            7'b0100000: begin
-                                                                case (function_3)
-                                                                    3'b000: begin // SUB
-                                                                        `ifdef SIMULATION
-                                                                        $display("sub x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                                        `endif
-
-                                                                        alu_operations[i] <= 1;
-                                                                    end
-
-                                                                    3'b101 : begin // SRA
-                                                                        `ifdef SIMULATION
-                                                                        $display("sra x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                                        `endif
-
-                                                                        alu_operations[i] <= 7;
-                                                                    end
-
-                                                                    default: begin
-                                                                        `ifdef SIMULATION
-                                                                        $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
-                                                                        `endif
-
-                                                                        halted <= 1;
-
-                                                                        `ifdef SIMULATION
-                                                                        $stop();
-                                                                        `endif
-                                                                    end
-                                                                endcase
-                                                            end
-
-                                                            default: begin
-                                                                `ifdef SIMULATION
-                                                                $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
-                                                                `endif
-
-                                                                halted <= 1;
-
-                                                                `ifdef SIMULATION
-                                                                $stop();
-                                                                `endif
-                                                            end
-                                                        endcase
-                                                    end
-                                                end
-                                            end
-                                        end else begin
-                                            instruction_load_loaded <= 0;
-
-                                            case (function_7)
-                                                7'b0000000: begin
-                                                    case (function_3)
-                                                        3'b000: begin // ADD
-                                                            `ifdef SIMULATION
-                                                            $display("add x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                            `endif
-                                                        end
-
-                                                        3'b001 : begin // SLL
-                                                            `ifdef SIMULATION
-                                                            $display("sll x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                            `endif
-                                                        end
-
-                                                        3'b010 : begin // SLT
-                                                            `ifdef SIMULATION
-                                                            $display("slt x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                            `endif
-                                                        end
-
-                                                        3'b011 : begin // SLTU
-                                                            `ifdef SIMULATION
-                                                            $display("sltu x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                            `endif
-                                                        end
-
-                                                        3'b100 : begin // XOR
-                                                            `ifdef SIMULATION
-                                                            $display("xor x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                            `endif
-                                                        end
-
-                                                        3'b101 : begin // SRL
-                                                            `ifdef SIMULATION
-                                                            $display("srl x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                            `endif
-                                                        end
-
-                                                        3'b110 : begin // OR
-                                                            `ifdef SIMULATION
-                                                            $display("or x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                            `endif
-                                                        end
-
-                                                        3'b111 : begin // AND
-                                                            `ifdef SIMULATION
-                                                            $display("and x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                            `endif
-                                                        end
-
-                                                        default: begin
-                                                            `ifdef SIMULATION
-                                                            $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
-                                                            `endif
-
-                                                            halted <= 1;
-
-                                                            `ifdef SIMULATION
-                                                            $stop();
-                                                            `endif
-                                                        end
-                                                    endcase
-                                                end
-
-                                                7'b0100000: begin
-                                                    case (function_3)
-                                                        3'b000: begin // SUB
-                                                            `ifdef SIMULATION
-                                                            $display("sub x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                            `endif
-                                                        end
-
-                                                        3'b101 : begin // SRA
-                                                            `ifdef SIMULATION
-                                                            $display("sra x%0d, x%0d, x%0d", destination_register_index, source_1_register_index, source_2_register_index);
-                                                            `endif
-                                                        end
-
-                                                        default: begin
-                                                            `ifdef SIMULATION
-                                                            $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
-                                                            `endif
-
-                                                            halted <= 1;
-
-                                                            `ifdef SIMULATION
-                                                            $stop();
-                                                            `endif
-                                                        end
-                                                    endcase
-                                                end
-
-                                                default: begin
-                                                    `ifdef SIMULATION
-                                                    $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
-                                                    `endif
-
-                                                    halted <= 1;
-
-                                                    `ifdef SIMULATION
-                                                    $stop();
-                                                    `endif
-                                                end
-                                            endcase
-                                        end
-                                    end
-                                endcase
-                            end
-
-                            5'b00101 : begin // AUIPC
-                                if (destination_register_index == 0 || !register_busy_states[destination_register_index - 1]) begin
-                                    `ifdef SIMULATION
-                                    $display("auipc x%0d, %0d", destination_register_index, immediate_upper);
-                                    `endif
-
-                                    if (destination_register_index != 0) begin
-                                        register_values[destination_register_index - 1] <= instruction_program_counter + {immediate_upper, 12'b0};
-                                    end
-
-                                    instruction_load_loaded <= 0;
-                                end
-                            end
-
-                            5'b01101 : begin // LUI
-                                if (destination_register_index == 0 || !register_busy_states[destination_register_index - 1]) begin
-                                    `ifdef SIMULATION
-                                    $display("lui x%0d, %0d", destination_register_index, immediate_upper);
-                                    `endif
-
-                                    if (destination_register_index != 0) begin
-                                        register_values[destination_register_index - 1] <= {immediate_upper, 12'b0};
-                                    end
-
-                                    instruction_load_loaded <= 0;
-                                end
-                            end
-
-                            5'b11000 : begin // BRANCH
-                                if (
-                                    (source_1_register_index == 0 || !register_busy_states[source_1_register_index - 1]) &&
-                                    (source_2_register_index == 0 || !register_busy_states[source_2_register_index - 1]) &&
-                                    !instruction_load_to_begin
-                                ) begin
-                                    instruction_load_loaded <= 0;
-
-                                    case (function_3)
-                                        3'b000 : begin // BEQ
-                                            `ifdef SIMULATION
-                                            $display("beq x%0d, x%0d, %0d", source_1_register_index, source_2_register_index, immediate_branch);
-                                            `endif
-
-                                            if (source_1_register_value == source_2_register_value) begin
-                                                instruction_load_program_counter <= instruction_program_counter + immediate_branch;
-
-                                                instruction_load_canceling <= 1;
-                                            end
-                                        end
-
-                                        3'b001 : begin // BNE
-                                            `ifdef SIMULATION
-                                            $display("bne x%0d, x%0d, %0d", source_1_register_index, source_2_register_index, immediate_branch);
-                                            `endif
-
-                                            if (source_1_register_value != source_2_register_value) begin
-                                                instruction_load_program_counter <= instruction_program_counter + immediate_branch;
-
-                                                instruction_load_canceling <= 1;
-                                            end
-                                        end
-
-                                        3'b100 : begin // BLT
-                                            `ifdef SIMULATION
-                                            $display("blt x%0d, x%0d, %0d", source_1_register_index, source_2_register_index, immediate_branch);
-                                            `endif
-
-                                            if ($signed(source_1_register_value) < $signed(source_2_register_value)) begin
-                                                instruction_load_program_counter <= instruction_program_counter + immediate_branch;
-
-                                                instruction_load_canceling <= 1;
-                                            end
-                                        end
-
-                                        3'b101 : begin // BGE
-                                            `ifdef SIMULATION
-                                            $display("bge x%0d, x%0d, %0d", source_1_register_index, source_2_register_index, immediate_branch);
-                                            `endif
-                                            
-                                            if ($signed(source_1_register_value) >= $signed(source_2_register_value)) begin
-                                                instruction_load_program_counter <= instruction_program_counter + immediate_branch;
-
-                                                instruction_load_canceling <= 1;
-                                            end
-                                        end
-
-                                        3'b110 : begin // BLTU
-                                            `ifdef SIMULATION
-                                            $display("bltu x%0d, x%0d, %0d", source_1_register_index, source_2_register_index, immediate_branch);
-                                            `endif
-                                            
-                                            if (source_1_register_value < source_2_register_value) begin
-                                                instruction_load_program_counter <= instruction_program_counter + immediate_branch;
-
-                                                instruction_load_canceling <= 1;
-                                            end
-                                        end
-
-                                        3'b111 : begin // BGEU
-                                            `ifdef SIMULATION
-                                            $display("bgeu x%0d, x%0d, %0d", source_1_register_index, source_2_register_index, immediate_branch);
-                                            `endif
-                                            
-                                            if (source_1_register_value >= source_2_register_value) begin
-                                                instruction_load_program_counter <= instruction_program_counter + immediate_branch;
-
-                                                instruction_load_canceling <= 1;
-                                            end
-                                        end
-
-                                        default : begin
-                                            `ifdef SIMULATION
-                                            $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
-                                            `endif
-
-                                            halted <= 1;
-
-                                            `ifdef SIMULATION
-                                            $stop();
-                                            `endif
-                                        end
-                                    endcase
-                                end
-                            end
-
-                            5'b11011 : begin // JAL
-                                if (
-                                    (destination_register_index == 0 ||
-                                    !register_busy_states[destination_register_index - 1]) && 
-                                    !instruction_load_to_begin
-                                ) begin
-                                    `ifdef SIMULATION
-                                    $display("jal x%0d, %0d", destination_register_index, $signed(immediate_jump));
-                                    `endif
-
-                                    if (destination_register_index != 0) begin
-                                        register_values[destination_register_index - 1] <= instruction_program_counter + 4;
-                                    end
-
-                                    instruction_load_program_counter <= instruction_program_counter + immediate_jump;
-
-                                    instruction_load_canceling <= 1;
-
-                                    instruction_load_loaded <= 0;
-                                end
-                            end
-
-                            5'b11001 : begin // JALR
-                                if (
-                                    (destination_register_index == 0 || !register_busy_states[destination_register_index - 1]) &&
-                                    (source_1_register_index == 0 || !register_busy_states[source_1_register_index - 1]) &&
-                                    !instruction_load_to_begin
-                                ) begin
-                                    `ifdef SIMULATION
-                                    $display("jalr x%0d, x%0d, %0d", destination_register_index, source_1_register_index, $signed(immediate));
-                                    `endif
-
-                                    if (destination_register_index != 0) begin
-                                        register_values[destination_register_index - 1] <= instruction_program_counter + 4;
-                                    end
-
-                                    if (source_1_register_index == 0) begin
-                                        instruction_load_program_counter <= immediate & ~32'b1;
-                                    end else begin
-                                        instruction_load_program_counter <= (immediate + register_values[source_1_register_index - 1]) & ~32'b1;
-                                    end
-
-                                    instruction_load_canceling <= 1;
-                                    instruction_load_loaded <= 0;
-                                end
-                            end
-
-                            5'b00000 : begin // LOAD
-                                if (
-                                    memory_unit_occupied == 0 &&
-                                    (destination_register_index == 0 || !register_busy_states[destination_register_index - 1])
-                                ) begin
-                                    instruction_load_loaded <= 0;
-
-                                    memory_unit_occupied <= 1;
-                                    memory_unit_operation <= 0;
-
-                                    if (source_1_register_index == 0) begin
-                                        memory_unit_address_loaded <= 1;
-                                        memory_unit_address_value <= 0;
-                                    end else begin
-                                        if (register_busy_states[source_1_register_index - 1]) begin
-                                            value_on_a_bus = 0;
-
-                                            for (i = 0; i < bus_count; i = i + 1) begin
-                                                if (!value_on_a_bus && bus_asserted_states[i] && bus_sources[i] == register_station_indices[source_1_register_index - 1]) begin
-                                                    memory_unit_address_loaded <= 1;
-                                                    memory_unit_address_value <= bus_values[i];
-
-                                                    value_on_a_bus = 1;
-                                                end
-                                            end
-
-                                            if (!value_on_a_bus) begin
-                                                memory_unit_address_loaded <= 0;
-                                                memory_unit_address_index <= register_station_indices[source_1_register_index - 1];
-                                            end
-                                        end else begin
-                                            memory_unit_address_loaded <= 1;
-                                            memory_unit_address_value <= register_values[source_1_register_index - 1];
-                                        end
-                                    end
-                                    memory_unit_address_offset <= immediate;
-
-                                    if (destination_register_index != 0) begin
-                                        register_busy_states[destination_register_index - 1] <= 1;
-                                        register_station_indices[destination_register_index - 1] <= first_memory_unit_station;
-                                    end
-
-                                    case (function_3)
-                                        3'b000 : begin // LB
-                                            `ifdef SIMULATION
-                                            $display("lb x%0d, %0d(x%0d)", destination_register_index, $signed(immediate), source_1_register_index);
-                                            `endif
-
-                                            memory_unit_data_size <= 0;
-                                            memory_unit_signed <= 1;
-                                        end
-
-                                        3'b001 : begin // LH
-                                            `ifdef SIMULATION
-                                            $display("lh x%0d, %0d(x%0d)", destination_register_index, $signed(immediate), source_1_register_index);
-                                            `endif
-
-                                            memory_unit_data_size <= 1;
-                                            memory_unit_signed <= 1;
-                                        end
-
-                                        3'b010 : begin // LW
-                                            `ifdef SIMULATION
-                                            $display("lw x%0d, %0d(x%0d)", destination_register_index, $signed(immediate), source_1_register_index);
-                                            `endif
-
-                                            memory_unit_data_size <= 2;
-                                            memory_unit_signed <= 1;
-                                        end
-
-                                        3'b100 : begin // LBU
-                                            `ifdef SIMULATION
-                                            $display("lbu x%0d, %0d(x%0d)", destination_register_index, $signed(immediate), source_1_register_index);
-                                            `endif
-
-                                            memory_unit_data_size <= 0;
-                                            memory_unit_signed <= 0;
-                                        end
-
-                                        3'b101 : begin // LHU
-                                            `ifdef SIMULATION
-                                            $display("lhu x%0d, %0d(x%0d)", destination_register_index, $signed(immediate), source_1_register_index);
-                                            `endif
-
-                                            memory_unit_data_size <= 1;
-                                            memory_unit_signed <= 0;
-                                        end
-
-                                        default : begin
-                                            `ifdef SIMULATION
-                                            $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
-                                            `endif
-
-                                            halted <= 1;
-
-                                            `ifdef SIMULATION
-                                            $stop();
-                                            `endif
-                                        end
-                                    endcase
-                                end
-                            end
-
-                            5'b01000 : begin // STORE
-                                if (
-                                    memory_unit_occupied == 0 &&
-                                    (destination_register_index == 0 || !register_busy_states[destination_register_index - 1])
-                                ) begin
-                                    instruction_load_loaded <= 0;
-
-                                    memory_unit_occupied <= 1;
-                                    memory_unit_operation <= 1;
-
-                                    if (source_1_register_index == 0) begin
-                                        memory_unit_address_loaded <= 1;
-                                        memory_unit_address_value <= 0;
-                                    end else begin
-                                        if (register_busy_states[source_1_register_index - 1]) begin
-                                            value_on_a_bus = 0;
-
-                                            for (i = 0; i < bus_count; i = i + 1) begin
-                                                if (!value_on_a_bus && bus_asserted_states[i] && bus_sources[i] == register_station_indices[source_1_register_index - 1]) begin
-                                                    memory_unit_address_loaded <= 1;
-                                                    memory_unit_address_value <= bus_values[i];
-
-                                                    value_on_a_bus = 1;
-                                                end
-                                            end
-
-                                            if (!value_on_a_bus) begin
-                                                memory_unit_address_loaded <= 0;
-                                                memory_unit_address_index <= register_station_indices[source_1_register_index - 1];
-                                            end
-                                        end else begin
-                                            memory_unit_address_loaded <= 1;
-                                            memory_unit_address_value <= register_values[source_1_register_index - 1];
-                                        end
-                                    end
-                                    memory_unit_address_offset <= immediate_store;
-
-                                    if (source_2_register_index == 0) begin
-                                        memory_unit_source_loaded <= 1;
-                                        memory_unit_source_value <= 0;
-                                    end else begin
-                                        if (register_busy_states[source_2_register_index - 1]) begin
-                                            value_on_a_bus = 0;
-
-                                            for (i = 0; i < bus_count; i = i + 1) begin
-                                                if (!value_on_a_bus && bus_asserted_states[i] && bus_sources[i] == register_station_indices[source_2_register_index - 1]) begin
-                                                    memory_unit_source_loaded <= 1;
-                                                    memory_unit_source_value <= bus_values[i];
-
-                                                    value_on_a_bus = 1;
-                                                end
-                                            end
-
-                                            if (!value_on_a_bus) begin
-                                                memory_unit_source_loaded <= 0;
-                                                memory_unit_source_index <= register_station_indices[source_2_register_index - 1];
-                                            end
-                                        end else begin
-                                            memory_unit_source_loaded <= 1;
-                                            memory_unit_source_value <= register_values[source_2_register_index - 1];
-                                        end
-                                    end
-
-                                    case (function_3)
-                                        3'b000 : begin // SB
-                                            `ifdef SIMULATION
-                                            $display("sb x%0d, %0d(x%0d)", source_2_register_index, $signed(immediate_store), source_1_register_index);
-                                            `endif
-
-                                            memory_unit_data_size <= 0;
-                                        end
-
-                                        3'b001 : begin // SH
-                                            `ifdef SIMULATION
-                                            $display("sh x%0d, %0d(x%0d)", source_2_register_index, $signed(immediate_store), source_1_register_index);
-                                            `endif
-
-                                            memory_unit_data_size <= 1;
-                                        end
-
-                                        3'b010 : begin // SW
-                                            `ifdef SIMULATION
-                                            $display("sw x%0d, %0d(x%0d)", source_2_register_index, $signed(immediate_store), source_1_register_index);
-                                            `endif
-
-                                            memory_unit_data_size <= 2;
-                                        end
-
-                                        default : begin
-                                            `ifdef SIMULATION
-                                            $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
-                                            `endif
-
-                                            halted <= 1;
-
-                                            `ifdef SIMULATION
-                                            $stop();
-                                            `endif
-                                        end
-                                    endcase
-                                end
-                            end
-
-                            5'b00011 : begin // MISC-MEM
-                                case (function_3)
-                                    3'b000 : begin // FENCE
-                                        instruction_load_loaded <= 0;
-                                    end
-
-                                    3'b001 : begin // FENCE.I
-                                        instruction_load_loaded <= 0;
-                                    end
-
-                                    default : begin
-                                        `ifdef SIMULATION
-                                        $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
-                                        `endif
-
-                                        halted <= 1;
-
-                                        `ifdef SIMULATION
-                                        $stop();
-                                        `endif
-                                    end
-                                endcase
-                            end
-
-                            default : begin
-                                `ifdef SIMULATION
-                                $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
-                                `endif
-
-                                halted <= 1;
-
-                                `ifdef SIMULATION
-                                $stop();
-                                `endif
-                            end
-                        endcase
-                    end
-
-                    default : begin
-                        `ifdef SIMULATION
-                        $display("Unknown instruction %0d (%0d, %0d, %0d)", instruction, opcode, function_3, function_7);
-                        `endif
-
-                        halted <= 1;
-
-                        `ifdef SIMULATION
-                        $stop();
-                        `endif
-                    end
-                endcase
-            end
-
-            // Register Loading
+            // Instruction Scheduling
 
             for (i = 0; i < 31; i = i + 1) begin
-                for (j = 0; j < bus_count; j = j + 1) begin
-                    if (register_busy_states[i] && bus_asserted_states[j] && bus_sources[j] == register_station_indices[i]) begin
-                        register_busy_states[i] <= 0;
-                        register_values[i] <= bus_values[j];
-                    end 
+                if (set_register_waiting[i]) begin
+                    register_waiting[i] <= 1;
+                    register_station_index[i] <= next_register_station_index[i];
+                end else if(reset_register_waiting[i]) begin
+                    register_waiting[i] <= 0;
                 end
             end
 
-            // ALUs
-
-            for (i = 0; i < bus_count; i = i + 1) begin
-                bus_to_be_asserted[i] = 0;
+            if (load_next_instruction) begin
+                instruction_load_loaded <= 0;
             end
 
-            for (i = 0; i < alu_count; i = i + 1) begin
-                if (alu_occupied_states[i]) begin
-                    value_on_a_bus = 0;
-
-                    for (j = 0; j < bus_count; j = j + 1) begin
-                        if (!value_on_a_bus && bus_asserted_states[j] && !alu_source_1_loaded_states[i] && bus_sources[j] == alu_source_1_indices[i]) begin
-                            alu_source_1_loaded_states[i] <= 1;
-                            alu_source_1_values[i] <= bus_values[j];
-
-                            value_on_a_bus = 1;
-                        end
-                    end
-
-                    value_on_a_bus = 0;
-
-                    for (j = 0; j < bus_count; j = j + 1) begin
-                        if (!value_on_a_bus && bus_asserted_states[j] && !alu_source_2_loaded_states[i] && bus_sources[j] == alu_source_2_indices[i]) begin
-                            alu_source_2_loaded_states[i] <= 1;
-                            alu_source_2_values[i] <= bus_values[j];
-
-                            value_on_a_bus = 1;
-                        end
-                    end
-
-                    value_on_a_bus = 0;
-
-                    for (j = 0; j < bus_count; j = j + 1) begin
-                        if (!value_on_a_bus && alu_source_1_loaded_states[i] && alu_source_2_loaded_states[i] && !bus_to_be_asserted[j]) begin
-                            iteration_helper = first_alu_station + i;
-                            bus_sources[j] <= iteration_helper[station_index_size - 1 : 0];
-
-                            bus_to_be_asserted[j] = 1;
-                            value_on_a_bus = 1;
-
-                            alu_occupied_states[i] <= 0;
-
-                            case (alu_operations[i])
-                                0 : begin
-                                    bus_values[j] <= alu_source_1_values[i] + alu_source_2_values[i];
-                                end
-
-                                1 : begin
-                                    bus_values[j] <= alu_source_1_values[i] - alu_source_2_values[i];
-                                end
-
-                                2 : begin
-                                    bus_values[j] <= alu_source_1_values[i] | alu_source_2_values[i];
-                                end
-
-                                3 : begin
-                                    bus_values[j] <= alu_source_1_values[i] & alu_source_2_values[i];
-                                end
-
-                                4 : begin
-                                    bus_values[j] <= alu_source_1_values[i] ^ alu_source_2_values[i];
-                                end
-
-                                5 : begin
-                                    bus_values[j] <= alu_source_1_values[i] << alu_source_2_values[i][4 : 0];
-                                end
-
-                                6 : begin
-                                    bus_values[j] <= alu_source_1_values[i] >> alu_source_2_values[i][4 : 0];
-                                end
-
-                                7 : begin
-                                    bus_values[j] <= $signed(alu_source_1_values[i]) >>> alu_source_2_values[i][4 : 0];
-                                end
-
-                                8 : begin
-                                    bus_values[j] <= {31'b0, alu_source_1_values[i] < alu_source_2_values[i]};
-                                end
-
-                                9 : begin
-                                    bus_values[j] <= {31'b0, $signed(alu_source_1_values[i]) < $signed(alu_source_2_values[i])};
-                                end
-                            endcase
-                        end
-                    end
-                end
-            end
-
-            // Multipliers
-
-            for (i = 0; i < multiplier_count; i = i + 1) begin
-                if (multiplier_occupied_states[i]) begin
-                    value_on_a_bus = 0;
-
-                    for (j = 0; j < bus_count; j = j + 1) begin
-                        if (!value_on_a_bus && bus_asserted_states[j] && !multiplier_source_1_loaded_states[i] && bus_sources[j] == multiplier_source_1_indices[i]) begin
-                            multiplier_source_1_loaded_states[i] <= 1;
-                            multiplier_source_1_values[i] <= bus_values[j];
-
-                            value_on_a_bus = 1;
-                        end
-                    end
-
-                    value_on_a_bus = 0;
-
-                    for (j = 0; j < bus_count; j = j + 1) begin
-                        if (!value_on_a_bus && bus_asserted_states[j] && !multiplier_source_2_loaded_states[i] && bus_sources[j] == multiplier_source_2_indices[i]) begin
-                            multiplier_source_2_loaded_states[i] <= 1;
-                            multiplier_source_2_values[i] <= bus_values[j];
-
-                            value_on_a_bus = 1;
-                        end
-                    end
-
-                    if (multiplier_source_1_loaded_states[i] && multiplier_source_2_loaded_states[i]) begin
-                        if (multiplier_source_1_signed_flags[i]) begin
-                            effective_multiplier_source_1 = {{32{multiplier_source_1_values[i][31]}}, multiplier_source_1_values[i]};
-                        end else begin
-                            effective_multiplier_source_1 = {32'b0, multiplier_source_1_values[i]};
-                        end
-
-                        if (multiplier_source_2_signed_flags[i]) begin
-                            effective_multiplier_source_2 = {{32{multiplier_source_2_values[i][31]}}, multiplier_source_2_values[i]};
-                        end else begin
-                            effective_multiplier_source_2 = {32'b0, multiplier_source_2_values[i]};
-                        end
-
-                        if (effective_multiplier_source_2 == 0) begin
-                            value_on_a_bus = 0;
-
-                            for (j = 0; j < bus_count; j = j + 1) begin
-                                if (!value_on_a_bus && !bus_to_be_asserted[j]) begin
-                                    iteration_helper = first_multiplier_station + i;
-                                    bus_sources[j] <= iteration_helper[station_index_size - 1 : 0];
-
-                                    bus_to_be_asserted[j] = 1;
-                                    value_on_a_bus = 1;
-
-                                    multiplier_occupied_states[i] <= 0;
-
-                                    case (multiplier_operations[i])
-                                        0 : begin
-                                            bus_values[j] <= 0;
-                                        end
-
-                                        1 : begin
-                                            bus_values[j] <= -1;
-                                        end
-
-                                        2 : begin
-                                            bus_values[j] <= effective_multiplier_source_1[31 : 0];
-                                        end
-                                    endcase
-                                end
-                            end
-                        end else begin
-                            if (multiplier_iterations[i] == 64) begin
-                                value_on_a_bus = 0;
-
-                                for (j = 0; j < bus_count; j = j + 1) begin
-                                    if (!value_on_a_bus && !bus_to_be_asserted[j]) begin
-                                        iteration_helper = first_multiplier_station + i;
-                                        bus_sources[j] <= iteration_helper[station_index_size - 1 : 0];
-
-                                        bus_to_be_asserted[j] = 1;
-                                        value_on_a_bus = 1;
-
-                                        multiplier_occupied_states[i] <= 0;
-
-                                        case (multiplier_operations[i])
-                                            0 : begin
-                                                if (multiplier_upper_result_flags[i]) begin
-                                                    bus_values[j] <= multiplier_accumulator_values[i][63 : 32];
-                                                end else begin
-                                                    bus_values[j] <= multiplier_accumulator_values[i][31 : 0];
-                                                end
-                                            end
-
-                                            1 : begin
-                                                if (effective_multiplier_source_1[63] == effective_multiplier_source_2[63]) begin
-                                                    bus_values[j] <= multiplier_quotient_values[i][31 : 0];
-                                                end else begin
-                                                    bus_values[j] <= -multiplier_quotient_values[i][31 : 0];
-                                                end
-                                            end
-
-                                            2 : begin
-                                                if (!effective_multiplier_source_1[63]) begin
-                                                    bus_values[j] <= multiplier_accumulator_values[i][31 : 0];
-                                                end else begin
-                                                    bus_values[j] <= -multiplier_accumulator_values[i][31 : 0];
-                                                end
-                                            end
-                                        endcase
-                                    end
-                                end
-                            end else begin
-                                sub_cycle_multiplier_iteration = multiplier_iterations[i];
-                                sub_cycle_multiplier_accumulator = multiplier_accumulator_values[i];
-                                sub_cycle_multiplier_quotient = multiplier_quotient_values[i];
-
-                                for (j = 0; j < 4; j = j + 1) begin
-                                    sub_cycle_multiplier_accumulator = sub_cycle_multiplier_accumulator << 1;
-
-                                    if (multiplier_operations[i] == 0) begin
-                                        if (effective_multiplier_source_2[63 - sub_cycle_multiplier_iteration]) begin
-                                            sub_cycle_multiplier_accumulator = sub_cycle_multiplier_accumulator + effective_multiplier_source_1;
-                                        end
-
-                                        sub_cycle_multiplier_iteration = sub_cycle_multiplier_iteration + 1;
-                                    end else begin
-                                        if (effective_multiplier_source_1[63] == 1) begin
-                                            effective_multiplier_source_1 = -effective_multiplier_source_1;
-                                        end
-
-                                        if (effective_multiplier_source_2[63] == 1) begin
-                                            effective_multiplier_source_2 = -effective_multiplier_source_2;
-                                        end
-
-                                        sub_cycle_multiplier_accumulator[0] = effective_multiplier_source_1[63 - sub_cycle_multiplier_iteration];
-
-                                        if (sub_cycle_multiplier_accumulator >= effective_multiplier_source_2) begin
-                                            sub_cycle_multiplier_accumulator = sub_cycle_multiplier_accumulator - effective_multiplier_source_2;
-
-                                            sub_cycle_multiplier_quotient[63 - sub_cycle_multiplier_iteration] = 1;
-                                        end
-
-                                        sub_cycle_multiplier_iteration = sub_cycle_multiplier_iteration + 1;
-                                    end
-                                end
-
-                                multiplier_iterations[i] <= sub_cycle_multiplier_iteration;
-                                multiplier_accumulator_values[i] <= sub_cycle_multiplier_accumulator;
-                                multiplier_quotient_values[i] <= sub_cycle_multiplier_quotient;
-                            end
-                        end
-                    end
-                end
-            end
-
-            // Memory Load & Store
-
-            if (memory_unit_occupied) begin
-                if (!memory_unit_waiting) begin
-                    value_on_a_bus = 0;
-
-                    for (i = 0; i < bus_count; i = i + 1) begin
-                        if (!value_on_a_bus && bus_asserted_states[i] && !memory_unit_address_loaded && bus_sources[i] == memory_unit_address_index) begin
-                            memory_unit_address_loaded <= 1;
-                            memory_unit_address_value <= bus_values[i];
-
-                            value_on_a_bus = 1;
-                        end
-                    end
-
-                    if (memory_unit_operation == 1) begin
-                        value_on_a_bus = 0;
-
-                        for (i = 0; i < bus_count; i = i + 1) begin
-                            if (!value_on_a_bus && bus_asserted_states[i] && !memory_unit_source_loaded && bus_sources[i] == memory_unit_source_index) begin
-                                memory_unit_source_loaded <= 1;
-                                memory_unit_source_value <= bus_values[i];
-
-                                value_on_a_bus = 1;
-                            end
-                        end
-                    end
-
-                    if (!memory_ready && memory_unit_address_loaded && (memory_unit_operation == 0 || memory_unit_source_loaded)) begin
-                        `ifdef SIMULATION
-                        $display("Memory Operation Begin");
-                        `endif
-
-                        memory_unit_waiting <= 1;
-
-                        memory_enable <= 1;
-                        memory_operation <= memory_unit_operation;
-                        memory_address <= memory_unit_address_value + memory_unit_address_offset;
-                        memory_data_size <= memory_unit_data_size;
-
-                        if (memory_unit_operation == 1) begin
-                            memory_data_out <= memory_unit_source_value;
-                        end
-                    end
-                end else begin
-                    value_on_a_bus = 0;
-
-                    for (i = 0; i < bus_count; i = i + 1) begin
-                        if (!value_on_a_bus && memory_ready && !bus_to_be_asserted[i]) begin
-                            `ifdef SIMULATION
-                            $display("Memory Operation End");
-                            `endif
-
-                            memory_unit_waiting <= 0;
-
-                            bus_to_be_asserted[i] = 1;
-                            value_on_a_bus = 1;
-
-                            bus_sources[i] <= first_memory_unit_station;
-
-                            memory_unit_occupied <= 0;
-
-                            memory_enable <= 0;
-
-                            if (memory_unit_operation == 0) begin
-                                case (memory_unit_data_size)
-                                    0: begin
-                                        if (memory_unit_signed) begin
-                                            bus_values[i] <= {{25{memory_data_in[7]}}, memory_data_in[6 : 0]};
-                                        end else begin
-                                            bus_values[i] <= {24'b0, memory_data_in[7 : 0]};
-                                        end
-                                    end
-
-                                    1: begin
-                                        if (memory_unit_signed) begin
-                                            bus_values[i] <= {{17{memory_data_in[15]}}, memory_data_in[14 : 0]};
-                                        end else begin
-                                            bus_values[i] <= {16'b0, memory_data_in[15 : 0]};
-                                        end
-                                    end
-
-                                    2: begin
-                                        bus_values[i] <= memory_data_in;
-                                    end
-                                endcase
-                            end
-                        end
-                    end
-                end
-            end
-
-            for (i = 0; i < bus_count; i = i + 1) begin
-                bus_asserted_states[i] <= bus_to_be_asserted[i];
+            if (cancel_loading_instruction) begin
+                instruction_load_canceling <= 1;
+                instruction_load_program_counter <= next_instruction_load_program_counter;
             end
         end
     end

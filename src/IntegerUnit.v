@@ -7,8 +7,8 @@ module IntegerUnit
     input clock,
     input reset,
 
-    input load,
-    input set_unoccupied,
+    input set_occupied,
+    input reset_occupied,
     input [3 : 0]operation,
     input preload_a_value,
     input [STATION_INDEX_SIZE - 1 : 0]a_source,
@@ -18,14 +18,23 @@ module IntegerUnit
     input [SIZE - 1 : 0]preloaded_b_value,
 
     output reg occupied,
-    output reg result_ready,
+    output result_ready,
     output reg [SIZE - 1 : 0]result,
 
-    input bus_asserted[0 : BUS_INDEX_SIZE - 1],
-    input [STATION_INDEX_SIZE - 1 : 0]bus_source[0 : BUS_INDEX_SIZE - 1],
-    input [SIZE - 1 : 0]bus_value[0 : BUS_INDEX_SIZE - 1]
+    input `FLAT_ARRAY(bus_asserted, 1, BUS_COUNT),
+    input `FLAT_ARRAY(bus_source, STATION_INDEX_SIZE, BUS_COUNT),
+    input `FLAT_ARRAY(bus_value, SIZE, BUS_COUNT)
 );
-    localparam BUS_INDEX_SIZE = $clog2(BUS_COUNT - 1);
+    genvar flatten_i;
+
+    wire `ARRAY(bus_asserted, 1, BUS_COUNT);
+    `NORMAL_EQUALS_FLAT(bus_asserted, 1, BUS_COUNT);
+    wire `ARRAY(bus_source, STATION_INDEX_SIZE, BUS_COUNT);
+    `NORMAL_EQUALS_FLAT(bus_source, STATION_INDEX_SIZE, BUS_COUNT);
+    wire `ARRAY(bus_value, SIZE, BUS_COUNT);
+    `NORMAL_EQUALS_FLAT(bus_value, SIZE, BUS_COUNT);
+
+    reg [3 : 0]saved_operation;
 
     reg a_loaded;
     reg [SIZE - 1 : 0]a_value;
@@ -41,10 +50,10 @@ module IntegerUnit
     reg b_value_found_on_bus;
     reg [SIZE - 1 : 0]b_value_on_bus;
 
-    always @* begin
-        result_ready = a_loaded && b_loaded;
+    assign result_ready = occupied && a_loaded && b_loaded;
 
-        case (operation)
+    always @* begin
+        case (saved_operation)
             0 : begin
                 result = a_value + b_value;
             end
@@ -78,11 +87,11 @@ module IntegerUnit
             end
 
             8 : begin
-                result = a_value < b_value;
+                result = {31'b0, a_value < b_value};
             end
 
             9 : begin
-                result = $signed(a_value) < $signed(b_value);
+                result = {31'b0, $signed(a_value) < $signed(b_value)};
             end
 
             default : begin
@@ -91,14 +100,16 @@ module IntegerUnit
         endcase
 
         a_value_found_on_bus = 0;
+        a_value_on_bus = 0;
         b_value_found_on_bus = 0;
+        b_value_on_bus = 0;
         for (i = 0; i < BUS_COUNT; i = i + 1) begin
-            if (!a_value_found_on_bus && !a_loaded && bus_asserted[i] && bus_source[i] == a_source) begin
+            if (!a_value_found_on_bus && bus_asserted[i] && bus_source[i] == a_source) begin
                 a_value_found_on_bus = 1;
                 a_value_on_bus = bus_value[i];
             end
 
-            if (!b_value_found_on_bus && !b_loaded && bus_asserted[i] && bus_source[i] == b_source) begin
+            if (!b_value_found_on_bus && bus_asserted[i] && bus_source[i] == b_source) begin
                 b_value_found_on_bus = 1;
                 b_value_on_bus = bus_value[i];
             end
@@ -109,8 +120,9 @@ module IntegerUnit
         if (reset) begin
             occupied <= 0;
         end else begin
-            if (load) begin
+            if (set_occupied) begin
                 occupied <= 1;
+                saved_operation <= operation;
 
                 if (preload_a_value) begin
                     a_loaded <= 1;
@@ -125,19 +137,17 @@ module IntegerUnit
                 end else begin
                     b_loaded <= 0;
                 end
-            end else if (set_unoccupied) begin
+            end else if (reset_occupied) begin
                 occupied <= 0;
-            end else begin
-                if (occupied) begin
-                    if (!a_loaded && a_value_found_on_bus) begin
-                        a_loaded <= 1;
-                        a_value <= a_value_on_bus;
-                    end
+            end else if (occupied) begin
+                if (!a_loaded && a_value_found_on_bus) begin
+                    a_loaded <= 1;
+                    a_value <= a_value_on_bus;
+                end
 
-                    if (!b_loaded && b_value_found_on_bus) begin
-                        b_loaded <= 1;
-                        b_value <= a_value_on_bus;
-                    end
+                if (!b_loaded && b_value_found_on_bus) begin
+                    b_loaded <= 1;
+                    b_value <= b_value_on_bus;
                 end
             end
         end

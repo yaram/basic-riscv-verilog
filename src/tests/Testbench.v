@@ -4,7 +4,7 @@ module Testbench(
 );
     parameter ram_size = 1024 * 64;
 
-    reg [7 : 0]ram[0 : ram_size];
+    reg [7 : 0]ram[0 : ram_size - 1];
 
     initial begin
         $readmemh(`ROM_PATH, ram);
@@ -18,9 +18,9 @@ module Testbench(
     wire memory_operation;
     reg memory_ready;
 
-    CPU cpu(clock, reset, memory_address, memory_data_in, memory_data_out, memory_data_size, memory_enable, memory_operation, memory_ready);
+    CPU cpu(clock, reset, memory_enable, memory_operation, memory_ready, memory_data_size, memory_address, memory_data_in, memory_data_out);
 
-    always @(posedge clock or posedge reset) begin
+    always @(posedge clock) begin
         if (reset) begin
             memory_ready <= 0;
         end else begin
@@ -28,11 +28,11 @@ module Testbench(
                 if (memory_operation == 0) begin
                     if (memory_address < ram_size) begin
                         if (memory_data_size == 0) begin
-                            $display("Memory Read: address %x, value %x", memory_address, ram[memory_address]);
+                            $display("RAM Memory Read: address %x, value %x", memory_address, ram[memory_address]);
                         end else if (memory_data_size == 1) begin
-                            $display("Memory Read: address %x, value %x", memory_address, {ram[memory_address + 1], ram[memory_address]});
-                        end else if (memory_data_size == 2) begin
-                            $display("Memory Read: address %x, value %x", memory_address, {ram[memory_address + 3], ram[memory_address + 2], ram[memory_address + 1], ram[memory_address]});
+                            $display("RAM Memory Read: address %x, value %x", memory_address, {ram[memory_address + 1], ram[memory_address]});
+                        end else begin
+                            $display("RAM Memory Read: address %x, value %x", memory_address, {ram[memory_address + 3], ram[memory_address + 2], ram[memory_address + 1], ram[memory_address]});
                         end
 
                         memory_data_in[7 : 0] <= ram[memory_address];
@@ -42,18 +42,26 @@ module Testbench(
                             memory_data_in[31 : 24] <= ram[memory_address + 3];
                         end
                     end else begin
-                        memory_data_in <= 0;
+                        if (memory_data_size == 0) begin
+                            $display("Out of Bounds Memory Read: address %x", memory_address);
+                        end else if (memory_data_size == 1) begin
+                            $display("Out of Bounds Memory Read: address %x", memory_address);
+                        end else begin
+                            $display("Out of Bounds Memory Read: address %x", memory_address);
+                        end
+
+                        $stop();
                     end
 
                     memory_ready <= 1;
                 end else begin
                     if (memory_address < ram_size) begin
                         if (memory_data_size == 0) begin
-                            $display("Memory Write: address %x, old value %x, new value %x", memory_address, ram[memory_address], memory_data_out[7 : 0]);
+                            $display("RAM Memory Write: address %x, old value %x, new value %x", memory_address, ram[memory_address], memory_data_out[7 : 0]);
                         end else if (memory_data_size == 1) begin
-                            $display("Memory Write: address %x, old value %x, new value %x", memory_address, {ram[memory_address + 1], ram[memory_address]}, memory_data_out[15 : 0]);
-                        end else if (memory_data_size == 2) begin
-                            $display("Memory Write: address %x, old value %x, new value %x", memory_address, {ram[memory_address + 3], ram[memory_address + 2], ram[memory_address + 1], ram[memory_address]}, memory_data_out);
+                            $display("RAM Memory Write: address %x, old value %x, new value %x", memory_address, {ram[memory_address + 1], ram[memory_address]}, memory_data_out[15 : 0]);
+                        end else begin
+                            $display("RAM Memory Write: address %x, old value %x, new value %x", memory_address, {ram[memory_address + 3], ram[memory_address + 2], ram[memory_address + 1], ram[memory_address]}, memory_data_out);
                         end
 
                         ram[memory_address] <= memory_data_out[7 : 0];
@@ -72,6 +80,16 @@ module Testbench(
                         $stop();
                     end else if (memory_address == 32'hFFFFFF) begin
                         $display("Debug Print: %d", memory_data_out[7 : 0]);
+                    end else begin
+                        if (memory_data_size == 0) begin
+                            $display("Out of Bounds Memory Write: address %x, value %x", memory_address, memory_data_out[7 : 0]);
+                        end else if (memory_data_size == 1) begin
+                            $display("Out of Bounds Memory Write: address %x, value %x", memory_address, memory_data_out[15 : 0]);
+                        end else begin
+                            $display("Out of Bounds Memory Write: address %x, value %x", memory_address, memory_data_out);
+                        end
+
+                        $stop();
                     end
 
                     memory_ready <= 1;

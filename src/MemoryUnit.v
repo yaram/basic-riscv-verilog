@@ -21,24 +21,29 @@ module MemoryUnit
     input [SIZE - 1 : 0]preloaded_data_value,
 
     output reg occupied,
-    output reg result_ready,
+    output result_ready,
     output reg [SIZE - 1 : 0]result,
 
-    input [BUS_COUNT - 1: 0]bus_asserted_flat,
-    input [BUS_COUNT * STATION_INDEX_SIZE - 1 : 0]bus_source_flat,
-    input [BUS_COUNT * SIZE - 1 : 0]bus_value_flat,
+    input `FLAT_ARRAY(bus_asserted, 1, BUS_COUNT),
+    input `FLAT_ARRAY(bus_source, STATION_INDEX_SIZE, BUS_COUNT),
+    input `FLAT_ARRAY(bus_value, SIZE, BUS_COUNT),
 
-    output reg memory_enable,
-    output reg memory_operation,
+    output memory_enable,
+    output memory_operation,
     input memory_ready,
-    output reg [1 : 0]memory_data_size,
-    output reg [SIZE - 1 : 0]memory_address,
+    output [1 : 0]memory_data_size,
+    output [SIZE - 1 : 0]memory_address,
     input [SIZE - 1 : 0]memory_data_in,
-    output reg [SIZE - 1 : 0]memory_data_out
+    output [SIZE - 1 : 0]memory_data_out
 );
-    `UNFLATTEN(bus_asserted, 1, BUS_COUNT);
-    `UNFLATTEN(bus_source, STATION_INDEX_SIZE, BUS_COUNT);
-    `UNFLATTEN(bus_value, SIZE, BUS_COUNT);
+    genvar flatten_i;
+
+    wire `ARRAY(bus_asserted, 1, BUS_COUNT);
+    `NORMAL_EQUALS_FLAT(bus_asserted, 1, BUS_COUNT);
+    wire `ARRAY(bus_source, STATION_INDEX_SIZE, BUS_COUNT);
+    `NORMAL_EQUALS_FLAT(bus_source, STATION_INDEX_SIZE, BUS_COUNT);
+    wire `ARRAY(bus_value, SIZE, BUS_COUNT);
+    `NORMAL_EQUALS_FLAT(bus_value, SIZE, BUS_COUNT);
 
     reg operation_performed;
 
@@ -53,6 +58,15 @@ module MemoryUnit
     reg data_loaded;
     reg [SIZE - 1 : 0]data_value;
 
+    reg [SIZE - 1 : 0]saved_memory_data_in;
+
+    assign result_ready = occupied && operation_performed && !memory_ready;
+    assign memory_enable = occupied && address_loaded && data_loaded && !operation_performed;
+    assign memory_operation = saved_operation;
+    assign memory_data_size = saved_data_size;
+    assign memory_address = address_value + saved_address_offset;
+    assign memory_data_out = data_value;
+
     integer i;
 
     reg address_value_found_on_bus;
@@ -62,40 +76,31 @@ module MemoryUnit
     reg [SIZE - 1 : 0]data_value_on_bus;
 
     always @* begin
-        memory_enable = occupied && address_loaded && data_loaded;
-        memory_operation = saved_operation;
-        memory_data_size = saved_data_size;
-        memory_address = address_value + saved_address_offset;
-
-        result_ready = operation_performed;
-
         case (saved_data_size)
             0: begin
                 if (saved_is_signed) begin
-                    result = {{25{memory_data_in[7]}}, memory_data_in[6 : 0]};
+                    result = {{25{saved_memory_data_in[7]}}, saved_memory_data_in[6 : 0]};
                 end else begin
-                    result = {24'b0, memory_data_in[7 : 0]};
+                    result = {24'b0, saved_memory_data_in[7 : 0]};
                 end
             end
 
             1: begin
                 if (saved_is_signed) begin
-                    result = {{17{memory_data_in[15]}}, memory_data_in[14 : 0]};
+                    result = {{17{saved_memory_data_in[15]}}, saved_memory_data_in[14 : 0]};
                 end else begin
-                    result = {16'b0, memory_data_in[15 : 0]};
+                    result = {16'b0, saved_memory_data_in[15 : 0]};
                 end
             end
 
             2: begin
-                result = memory_data_in;
+                result = saved_memory_data_in;
             end
 
             default: begin
                 result = 0;
             end
         endcase
-
-        memory_data_out = data_value;
 
         address_value_found_on_bus = 0;
         address_value_on_bus = 0;
@@ -142,9 +147,7 @@ module MemoryUnit
                 end
             end else if(reset_occupied) begin
                 occupied <= 0;
-            end
-
-            if (occupied) begin
+            end else if (occupied) begin
                 if (!address_loaded && address_value_found_on_bus) begin
                     address_loaded <= 1;
                     address_value <= address_value_on_bus;
@@ -157,6 +160,8 @@ module MemoryUnit
 
                 if (memory_enable && memory_ready) begin
                     operation_performed <= 1;
+
+                    saved_memory_data_in <= memory_data_in;
                 end
             end
         end

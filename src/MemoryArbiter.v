@@ -7,30 +7,39 @@ module MemoryArbiter
     input wire reset,
 
     output reg memory_enable,
-    output reg memory_operation,
+    output memory_operation,
     input memory_ready,
-    output reg [1 : 0]memory_data_size,
-    output reg [SIZE - 1 : 0]memory_address,
+    output [1 : 0]memory_data_size,
+    output [SIZE - 1 : 0]memory_address,
     input [SIZE - 1 : 0]memory_data_in,
-    output reg [SIZE - 1 : 0]memory_data_out,
+    output [SIZE - 1 : 0]memory_data_out,
 
-    input [ACCESSOR_COUNT - 1 : 0]accessor_memory_enable_flat,
-    input [ACCESSOR_COUNT - 1 : 0]accessor_memory_operation_flat,
-    output [ACCESSOR_COUNT - 1 : 0]accessor_memory_ready_flat,
-    input [ACCESSOR_COUNT * 2 - 1 : 0]accessor_memory_data_size_flat,
-    input [ACCESSOR_COUNT * SIZE - 1 : 0]accessor_memory_address_flat,
-    output [ACCESSOR_COUNT * SIZE - 1 : 0]accessor_memory_data_in_flat,
-    input [ACCESSOR_COUNT * SIZE - 1 : 0]accessor_memory_data_out_flat
+    input `FLAT_ARRAY(accessor_memory_enable, 1, ACCESSOR_COUNT),
+    input `FLAT_ARRAY(accessor_memory_operation, 1, ACCESSOR_COUNT),
+    output `FLAT_ARRAY(accessor_memory_ready, 1, ACCESSOR_COUNT),
+    input `FLAT_ARRAY(accessor_memory_data_size, 2, ACCESSOR_COUNT),
+    input `FLAT_ARRAY(accessor_memory_address, SIZE, ACCESSOR_COUNT),
+    output `FLAT_ARRAY(accessor_memory_data_in, SIZE, ACCESSOR_COUNT),
+    input `FLAT_ARRAY(accessor_memory_data_out, SIZE, ACCESSOR_COUNT)
 );
-    localparam ACCESSOR_INDEX_SIZE = $clog2(ACCESSOR_COUNT - 1);
+    genvar flatten_i;
 
-    `UNFLATTEN(accessor_memory_enable, 1, ACCESSOR_COUNT);
-    `UNFLATTEN(accessor_memory_operation, 1, ACCESSOR_COUNT);
-    `UNFLATTEN_OUTPUT(accessor_memory_ready, 1, ACCESSOR_COUNT);
-    `UNFLATTEN(accessor_memory_data_size, 2, ACCESSOR_COUNT);
-    `UNFLATTEN(accessor_memory_address, SIZE, ACCESSOR_COUNT);
-    `UNFLATTEN_OUTPUT(accessor_memory_data_in, SIZE, ACCESSOR_COUNT);
-    `UNFLATTEN(accessor_memory_data_out, SIZE, ACCESSOR_COUNT);
+    localparam ACCESSOR_INDEX_SIZE = $clog2(ACCESSOR_COUNT);
+
+    wire `ARRAY(accessor_memory_enable, 1, ACCESSOR_COUNT);
+    `NORMAL_EQUALS_FLAT(accessor_memory_enable, 1, ACCESSOR_COUNT);
+    wire `ARRAY(accessor_memory_operation, 1, ACCESSOR_COUNT);
+    `NORMAL_EQUALS_FLAT(accessor_memory_operation, 1, ACCESSOR_COUNT);
+    reg `ARRAY(accessor_memory_ready, 1, ACCESSOR_COUNT);
+    `FLAT_EQUALS_NORMAL(accessor_memory_ready, 1, ACCESSOR_COUNT);
+    wire `ARRAY(accessor_memory_data_size, 2, ACCESSOR_COUNT);
+    `NORMAL_EQUALS_FLAT(accessor_memory_data_size, 2, ACCESSOR_COUNT);
+    wire `ARRAY(accessor_memory_address, SIZE, ACCESSOR_COUNT);
+    `NORMAL_EQUALS_FLAT(accessor_memory_address, SIZE, ACCESSOR_COUNT);
+    reg `ARRAY(accessor_memory_data_in, SIZE, ACCESSOR_COUNT);
+    `FLAT_EQUALS_NORMAL(accessor_memory_data_in, SIZE, ACCESSOR_COUNT);
+    wire `ARRAY(accessor_memory_data_out, SIZE, ACCESSOR_COUNT);
+    `NORMAL_EQUALS_FLAT(accessor_memory_data_out, SIZE, ACCESSOR_COUNT);
 
     reg active;
     reg [ACCESSOR_INDEX_SIZE - 1 : 0]active_accessor_index;
@@ -39,13 +48,15 @@ module MemoryArbiter
     reg reset_active;
     reg [ACCESSOR_INDEX_SIZE - 1 : 0]next_active_accessor_index;
 
+    assign memory_operation = accessor_memory_operation[active_accessor_index];
+    assign memory_data_size = accessor_memory_data_size[active_accessor_index];
+    assign memory_address = accessor_memory_address[active_accessor_index];
+    assign memory_data_out = accessor_memory_data_out[active_accessor_index];
+
     integer i;
 
     always @* begin
-        memory_operation = accessor_memory_operation[active_accessor_index];
-        memory_data_size = accessor_memory_data_size[active_accessor_index];
-        memory_address = accessor_memory_address[active_accessor_index];
-        memory_data_out = accessor_memory_data_out[active_accessor_index];
+        memory_enable = 0;
 
         set_active = 0;
         reset_active = 0;
@@ -53,22 +64,20 @@ module MemoryArbiter
 
         for (i = 0; i < ACCESSOR_COUNT; i = i + 1) begin
             accessor_memory_data_in[i] = memory_data_in;
+            accessor_memory_ready[i] = memory_ready;
 
             if (!active && !set_active && accessor_memory_enable[i]) begin
                 set_active = 1;
-                next_active_accessor_index = i;
-            end
-
-            accessor_memory_ready[i] = 0;
-
-            if (active && active_accessor_index == i) begin
-                accessor_memory_ready[i] = memory_ready;
-                memory_enable = accessor_memory_enable[i];
+                next_active_accessor_index = i[ACCESSOR_INDEX_SIZE - 1 : 0];
             end
         end
 
-        if (active && !memory_enable && !memory_ready) begin
-            reset_active = 1;
+        if (active) begin
+            memory_enable = accessor_memory_enable[active_accessor_index];
+
+            if (!memory_enable && !memory_ready) begin
+                reset_active = 1;
+            end
         end
     end
 

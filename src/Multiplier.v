@@ -23,7 +23,7 @@ module Multiplier
     input [SIZE - 1 : 0]preloaded_b_value,
 
     output reg occupied,
-    output reg result_ready,
+    output result_ready,
     output reg [SIZE - 1 : 0]result,
 
     input `FLAT_ARRAY(bus_asserted, 1, BUS_COUNT),
@@ -52,6 +52,8 @@ module Multiplier
     reg b_loaded;
     reg [SIZE - 1 : 0]b_value;
 
+    assign result_ready = occupied && a_loaded && b_loaded && iteration == SIZE * 2;
+
     integer i;
 
     reg a_value_found_on_bus;
@@ -72,8 +74,6 @@ module Multiplier
     reg [SIZE * 2 - 1 : 0]sub_cycle_quotient;
 
     always @* begin
-        result_ready = occupied && a_loaded && b_loaded && iteration == SIZE * 2;
-
         if (saved_a_signed) begin
             extended_a_value = {{SIZE{a_value[31]}}, a_value};
         end else begin
@@ -177,9 +177,7 @@ module Multiplier
                 end
             end else if(reset_occupied) begin
                 occupied <= 0;
-            end
-
-            if (occupied) begin
+            end else if (occupied) begin
                 if (!a_loaded && a_value_found_on_bus) begin
                     a_loaded <= 1;
                     a_value <= a_value_on_bus;
@@ -191,9 +189,9 @@ module Multiplier
                 end
 
                 if (a_loaded && b_loaded && iteration != SIZE * 2) begin
-                    iteration = sub_cycle_iteration;
-                    accumulator = sub_cycle_accumulator;
-                    quotient = sub_cycle_quotient;
+                    iteration <= sub_cycle_iteration;
+                    accumulator <= sub_cycle_accumulator;
+                    quotient <= sub_cycle_quotient;
                 end
             end
         end

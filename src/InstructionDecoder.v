@@ -3,16 +3,16 @@ module InstructionDecoder (
 
     output reg valid_instruction,
 
-    output reg source_1_is_immediate,
     output [4 : 0]source_1_register_index,
-    output reg [31 : 0]source_1_immediate_value,
+    output reg source_2_is_immediate,
     output [4 : 0]source_2_register_index,
+    output reg [31 : 0]source_2_immediate_value,
     output [4 : 0]destination_register_index,
 
-    output reg integer_unit_needed,
+    output reg integer_unit,
     output reg [3 : 0]integer_unit_operation,
 
-    output reg multiplier_needed,
+    output reg multiplier,
     output reg [1 : 0]multiplier_operation,
     output reg multiplier_source_1_signed,
     output reg multiplier_source_2_signed,
@@ -20,20 +20,22 @@ module InstructionDecoder (
 
     output reg load_immediate,
     output reg load_immediate_add_instruction_counter,
-    output load_immediate_value,
+    output [31 : 0]load_immediate_value,
 
     output reg branch,
     output reg [2 : 0]branch_condition,
+    output [31 : 0]branch_immediate,
 
     output reg jump_and_link,
     output reg jump_and_link_relative,
-    output jump_and_link_immediate,
-    output jump_and_link_relative_immediate,
+    output [31 : 0]jump_and_link_immediate,
+    output [31 : 0]jump_and_link_relative_immediate,
 
-    output reg memory_unit_needed,
+    output reg memory_unit,
     output reg memory_unit_operation,
     output reg [1 : 0]memory_unit_data_size,
     output reg memory_unit_signed,
+    output reg [31 : 0]memory_unit_address_offset_immediate,
 
     output reg fence
 );
@@ -54,20 +56,25 @@ module InstructionDecoder (
 
     assign load_immediate_value = {immediate_upper, 12'b0};
 
+    assign branch_immediate = immediate_branch;
+
     assign jump_and_link_immediate = immediate;
     assign jump_and_link_relative_immediate = immediate_jump;
 
     always @* begin
         valid_instruction = 1;
 
-        source_1_is_immediate = 0;
-        source_1_immediate_value = 0;
+        source_2_is_immediate = 0;
+        source_2_immediate_value = 0;
 
-        integer_unit_needed = 0;
+        integer_unit = 0;
         integer_unit_operation = 0;
 
-        multiplier_needed = 0;
+        multiplier = 0;
         multiplier_operation = 0;
+        multiplier_source_1_signed = 0;
+        multiplier_source_2_signed = 0;
+        multiplier_upper_result = 0;
 
         load_immediate = 0;
         load_immediate_add_instruction_counter = 0;
@@ -78,10 +85,12 @@ module InstructionDecoder (
         jump_and_link = 0;
         jump_and_link_relative = 0;
 
-        memory_unit_needed = 0;
+        memory_unit = 0;
         memory_unit_operation = 0;
         memory_unit_data_size = 0;
         memory_unit_signed = 0;
+
+        memory_unit_address_offset_immediate = 0;
 
         fence = 0;
 
@@ -89,9 +98,9 @@ module InstructionDecoder (
             2'b11: begin // Base instruction set
                 case (opcode[6 : 2])
                     5'b00100 : begin // OP-IMM
-                        integer_unit_needed = 1;
-                        source_1_is_immediate = 1;
-                        source_1_immediate_value = immediate;
+                        integer_unit = 1;
+                        source_2_is_immediate = 1;
+                        source_2_immediate_value = immediate;
 
                         case (function_3)
                             3'b000 : begin // ADDI
@@ -151,7 +160,7 @@ module InstructionDecoder (
                     5'b01100 : begin // OP
                         case (function_7)
                             7'b0000001 : begin // MULDIV
-                                multiplier_needed = 1;
+                                multiplier = 1;
 
                                 case (function_3)
                                     3'b000 : begin // MUL
@@ -213,7 +222,7 @@ module InstructionDecoder (
                             end
 
                             default : begin
-                                integer_unit_needed = 1;
+                                integer_unit = 1;
 
                                 case (function_7)
                                     7'b0000000: begin
@@ -291,7 +300,6 @@ module InstructionDecoder (
 
                     5'b11000 : begin // BRANCH
                         branch = 1;
-                        source_1_is_immediate = 1;
 
                         case (function_3)
                             3'b000 : begin // BEQ
@@ -334,8 +342,9 @@ module InstructionDecoder (
                     end
 
                     5'b00000 : begin // LOAD
-                        memory_unit_needed = 1;
+                        memory_unit = 1;
                         memory_unit_operation = 0;
+                        memory_unit_address_offset_immediate = immediate;
 
                         case (function_3)
                             3'b000 : begin // LB
@@ -370,8 +379,9 @@ module InstructionDecoder (
                     end
 
                     5'b01000 : begin // STORE
-                        memory_unit_needed = 1;
+                        memory_unit = 1;
                         memory_unit_operation = 1;
+                        memory_unit_address_offset_immediate = immediate_store;
 
                         case (function_3)
                             3'b000 : begin // SB

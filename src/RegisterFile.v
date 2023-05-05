@@ -1,5 +1,3 @@
-`include "flatten.v"
-
 module RegisterFile
 #(
     parameter SIZE = 32,
@@ -10,25 +8,33 @@ module RegisterFile
     input clock,
     input reset,
 
-    input [READ_COUNT * REGISTER_INDEX_SIZE - 1 : 0]read_index_flat,
-    output [READ_COUNT * SIZE - 1 : 0]read_data_flat,
+    input `FLAT_ARRAY(read_index, REGISTER_INDEX_SIZE, READ_COUNT),
+    output `FLAT_ARRAY(read_data, SIZE, READ_COUNT),
 
-    input [WRITE_COUNT - 1 : 0]write_enable_flat,
-    input [WRITE_COUNT * REGISTER_INDEX_SIZE - 1 : 0]write_index_flat,
-    input [WRITE_COUNT * SIZE - 1 : 0]write_data_flat
+    input `FLAT_ARRAY(write_enable, 1, WRITE_COUNT),
+    input `FLAT_ARRAY(write_index, REGISTER_INDEX_SIZE, WRITE_COUNT),
+    input `FLAT_ARRAY(write_data, SIZE, WRITE_COUNT)
 );
-    localparam REGISTER_INDEX_SIZE = $clog2(REGISTER_COUNT - 1);
+    genvar flatten_i;
 
-    `UNFLATTEN(read_index, REGISTER_INDEX_SIZE, READ_COUNT);
-    `UNFLATTEN_OUTPUT(read_data, SIZE, READ_COUNT);
+    localparam REGISTER_INDEX_SIZE = $clog2(REGISTER_COUNT);
 
-    `UNFLATTEN(write_enable, 1, WRITE_COUNT);
-    `UNFLATTEN(write_index, REGISTER_INDEX_SIZE, WRITE_COUNT);
-    `UNFLATTEN(write_data, SIZE, WRITE_COUNT);
+    wire `ARRAY(read_index, REGISTER_INDEX_SIZE, READ_COUNT);
+    `NORMAL_EQUALS_FLAT(read_index, REGISTER_INDEX_SIZE, READ_COUNT);
+    reg `ARRAY(read_data, SIZE, READ_COUNT);
+    `FLAT_EQUALS_NORMAL(read_data, SIZE, READ_COUNT);
+
+    wire `ARRAY(write_enable, 1, WRITE_COUNT);
+    `NORMAL_EQUALS_FLAT(write_enable, 1, WRITE_COUNT);
+    wire `ARRAY(write_index, REGISTER_INDEX_SIZE, WRITE_COUNT);
+    `NORMAL_EQUALS_FLAT(write_index, REGISTER_INDEX_SIZE, WRITE_COUNT);
+    wire `ARRAY(write_data, SIZE, WRITE_COUNT);
+    `NORMAL_EQUALS_FLAT(write_data, SIZE, WRITE_COUNT);
 
     reg [SIZE - 1 : 0]registers[0 : REGISTER_COUNT - 1];
 
     integer i;
+    integer j;
 
     always @* begin
         for (i = 0; i < READ_COUNT; i = i + 1) begin
@@ -47,6 +53,18 @@ module RegisterFile
                     registers[write_index[i]] <= write_data[i];
                 end
             end
+
+            `ifdef SIMULATION
+            // Sanity check for multiple writes to the same register
+            for (i = 0; i < WRITE_COUNT; i = i + 1) begin
+                for (j = 0; j < WRITE_COUNT; j = j + 1) begin
+                    if (i != j && write_enable[i] && write_enable[j] && write_index[i] == write_index[j]) begin
+                        $display("Simultaneous write to register %d from busses %d and %d", write_index[i], i, j);
+                        $stop();
+                    end
+                end
+            end
+            `endif
         end
     end
 endmodule

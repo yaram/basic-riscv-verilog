@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import sys
 import os
 import subprocess
 import shutil
@@ -9,7 +8,8 @@ def run_command(executable, *arguments):
     try:
         subprocess.run([executable, *arguments], check=True, capture_output=True)
     except subprocess.CalledProcessError as err:
-        print(err.output.decode('utf-8'))
+        print(err.stdout.decode('utf-8'))
+        print(err.stderr.decode('utf-8'))
         raise
 
 parent_directory = os.path.dirname(os.path.realpath(__file__))
@@ -75,10 +75,14 @@ def run_test_set(set_name, tests):
             print('Passed')
         except subprocess.CalledProcessError as err:
             print('Failed')
-            print(err.output.decode('utf-8'))
+            print(err.stdout.decode('utf-8'))
+            print(err.stderr.decode('utf-8'))
+            exit(1)
         except subprocess.TimeoutExpired as err:
             print('Failed (timeout)')
-            print(err.output.decode('utf-8'))
+            print(err.stdout.decode('utf-8'))
+            print(err.stderr.decode('utf-8'))
+            exit(1)
 
 run_command(
     shutil.which('cmake'),
