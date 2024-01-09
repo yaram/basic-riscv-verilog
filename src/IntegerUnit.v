@@ -87,11 +87,13 @@ module IntegerUnit
             end
 
             8 : begin
-                result = {31'b0, a_value < b_value};
+                result = 0;
+                result[0] = a_value < b_value;
             end
 
             9 : begin
-                result = {31'b0, $signed(a_value) < $signed(b_value)};
+                result = 0;
+                result[0] = $signed(a_value) < $signed(b_value);
             end
 
             default : begin
@@ -139,7 +141,9 @@ module IntegerUnit
                 end
             end else if (reset_occupied) begin
                 occupied <= 0;
-            end else if (occupied) begin
+            end
+
+            if (occupied) begin
                 if (!a_loaded && a_value_found_on_bus) begin
                     a_loaded <= 1;
                     a_value <= a_value_on_bus;
