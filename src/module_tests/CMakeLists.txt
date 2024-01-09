@@ -29,5 +29,5 @@ endfunction()
 
 generate_test(FlattenTest SOURCES FlattenTest.v)
 generate_test(BusArbiter SOURCES ../BusArbiter.v VERILATOR_ARGS -GSTATION_COUNT=4 -GBUS_COUNT=2)
-generate_test(StationValue SOURCES ../StationValue.v VERILATOR_ARGS -GSTATION_INDEX_SIZE=2 -GBUS_COUNT=2)
-generate_test(IntegerUnit SOURCES ../IntegerUnit.v  VERILATOR_ARGS -GSTATION_INDEX_SIZE=2 -GBUS_COUNT=2)
+generate_test(StationParameter SOURCES ../StationParameter.v VERILATOR_ARGS -GSTATION_INDEX_SIZE=2 -GBUS_COUNT=2)
+generate_test(IntegerUnit SOURCES ../StationParameter.v ../IntegerUnit.v VERILATOR_ARGS -GSTATION_INDEX_SIZE=2 -GBUS_COUNT=2)

@@ -1,9 +1,9 @@
 #define VL_TIME_CONTEXT
 #include "verilated.h"
-#include "VStationValue.h"
+#include "VStationParameter.h"
 #include "shared.h"
 
-static void step(VerilatedContext *context, VStationValue *top) {
+static void step(VerilatedContext *context, VStationParameter *top) {
     top->clock = 1;
 
     top->eval();
@@ -23,7 +23,7 @@ int main(int argc, char *argv[]) {
     VerilatedContext context{};
     context.commandArgs(argc, argv);
 
-    VStationValue top(&context);
+    VStationParameter top(&context);
 
     top.occupied = 0;
     top.preload_value = 0;

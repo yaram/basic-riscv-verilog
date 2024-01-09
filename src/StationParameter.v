@@ -1,4 +1,4 @@
-module StationValue
+module StationParameter
 #(
     parameter SIZE = 32,
     parameter STATION_INDEX_SIZE = 1,

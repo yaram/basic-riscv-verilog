@@ -7,8 +7,7 @@ module IntegerUnit
     input clock,
     input reset,
 
-    input set_occupied,
-    input reset_occupied,
+    input occupied,
     input [3 : 0]operation,
     input preload_a_value,
     input [STATION_INDEX_SIZE - 1 : 0]a_source,
@@ -17,7 +16,6 @@ module IntegerUnit
     input [STATION_INDEX_SIZE - 1 : 0]b_source,
     input [SIZE - 1 : 0]preloaded_b_value,
 
-    output reg occupied,
     output result_ready,
     output reg [SIZE - 1 : 0]result,
 
@@ -34,23 +32,55 @@ module IntegerUnit
     wire `ARRAY(bus_value, SIZE, BUS_COUNT);
     `NORMAL_EQUALS_FLAT(bus_value, SIZE, BUS_COUNT);
 
+    reg previous_occupied;
+
     reg [3 : 0]saved_operation;
 
-    reg a_loaded;
-    reg [SIZE - 1 : 0]a_value;
+    wire a_loaded;
+    wire [SIZE - 1 : 0]a_value;
 
-    reg b_loaded;
-    reg [SIZE - 1 : 0]b_value;
+    StationParameter #(
+        .SIZE(SIZE),
+        .STATION_INDEX_SIZE(STATION_INDEX_SIZE),
+        .BUS_COUNT(BUS_COUNT)
+    ) a_parameter (
+        .clock(clock),
+        .reset(reset),
+        .occupied(occupied),
+        .preload_value(preload_a_value),
+        .preloaded_value(preloaded_a_value),
+        .source_index(a_source),
+        .loaded(a_loaded),
+        .value(a_value),
+        .bus_asserted_flat(bus_asserted_flat),
+        .bus_source_flat(bus_source_flat),
+        .bus_value_flat(bus_value_flat)
+    );
 
-    integer i;
+    wire b_loaded;
+    wire [SIZE - 1 : 0]b_value;
 
-    reg a_value_found_on_bus;
-    reg [SIZE - 1 : 0]a_value_on_bus;
-
-    reg b_value_found_on_bus;
-    reg [SIZE - 1 : 0]b_value_on_bus;
+    StationParameter #(
+        .SIZE(SIZE),
+        .STATION_INDEX_SIZE(STATION_INDEX_SIZE),
+        .BUS_COUNT(BUS_COUNT)
+    ) b_parameter (
+        .clock(clock),
+        .reset(reset),
+        .occupied(occupied),
+        .preload_value(preload_b_value),
+        .preloaded_value(preloaded_b_value),
+        .source_index(b_source),
+        .loaded(b_loaded),
+        .value(b_value),
+        .bus_asserted_flat(bus_asserted_flat),
+        .bus_source_flat(bus_source_flat),
+        .bus_value_flat(bus_value_flat)
+    );
 
     assign result_ready = occupied && a_loaded && b_loaded;
+
+    integer i;
 
     always @* begin
         case (saved_operation)
@@ -100,58 +130,17 @@ module IntegerUnit
                 result = 0;
             end
         endcase
-
-        a_value_found_on_bus = 0;
-        a_value_on_bus = 0;
-        b_value_found_on_bus = 0;
-        b_value_on_bus = 0;
-        for (i = 0; i < BUS_COUNT; i = i + 1) begin
-            if (!a_value_found_on_bus && bus_asserted[i] && bus_source[i] == a_source) begin
-                a_value_found_on_bus = 1;
-                a_value_on_bus = bus_value[i];
-            end
-
-            if (!b_value_found_on_bus && bus_asserted[i] && bus_source[i] == b_source) begin
-                b_value_found_on_bus = 1;
-                b_value_on_bus = bus_value[i];
-            end
-        end
     end
 
     always @(posedge clock) begin
         if (reset) begin
-            occupied <= 0;
+            previous_occupied <= 0;
         end else begin
-            if (set_occupied) begin
-                occupied <= 1;
-                saved_operation <= operation;
-
-                if (preload_a_value) begin
-                    a_loaded <= 1;
-                    a_value <= preloaded_a_value;
-                end else begin
-                    a_loaded <= 0;
-                end
-
-                if (preload_b_value) begin
-                    b_loaded <= 1;
-                    b_value <= preloaded_b_value;
-                end else begin
-                    b_loaded <= 0;
-                end
-            end else if (reset_occupied) begin
-                occupied <= 0;
-            end
+            previous_occupied <= occupied;
 
             if (occupied) begin
-                if (!a_loaded && a_value_found_on_bus) begin
-                    a_loaded <= 1;
-                    a_value <= a_value_on_bus;
-                end
-
-                if (!b_loaded && b_value_found_on_bus) begin
-                    b_loaded <= 1;
-                    b_value <= b_value_on_bus;
+                if (!previous_occupied) begin
+                    saved_operation <= operation;
                 end
             end
         end
