@@ -32,4 +32,5 @@ function(generate_test MODULE)
 endfunction()
 
 generate_test(FlattenTest VERILOG_PATH FlattenTest.v)
+generate_test(BusArbiter VERILATOR_ARGS -GSTATION_COUNT=4 -GBUS_COUNT=2)
 generate_test(IntegerUnit VERILATOR_ARGS -GSTATION_INDEX_SIZE=2 -GBUS_COUNT=2)

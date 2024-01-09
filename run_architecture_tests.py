@@ -75,12 +75,16 @@ def run_test_set(set_name, tests):
             print('Passed')
         except subprocess.CalledProcessError as err:
             print('Failed')
+            print('stdout:')
             print(err.stdout.decode('utf-8'))
+            print('stderr:')
             print(err.stderr.decode('utf-8'))
             exit(1)
         except subprocess.TimeoutExpired as err:
             print('Failed (timeout)')
+            print('stdout:')
             print(err.stdout.decode('utf-8'))
+            print('stderr:')
             print(err.stderr.decode('utf-8'))
             exit(1)
 

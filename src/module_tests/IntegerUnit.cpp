@@ -1,7 +1,6 @@
 #define VL_TIME_CONTEXT
 #include "verilated.h"
 #include "VIntegerUnit.h"
-#include "verilated_vcd_c.h"
 #include "shared.h"
 
 static void step(VerilatedContext *context, VIntegerUnit *top) {
