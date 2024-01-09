@@ -6,11 +6,7 @@ find_package(verilator REQUIRED HINTS $ENV{VERILATOR_ROOT})
 
 function(generate_test MODULE)
 
-    cmake_parse_arguments(GENERATE_TEST "" "VERILOG_PATH" "VERILATOR_ARGS" ${ARGN})
-
-    if(NOT DEFINED GENERATE_TEST_VERILOG_PATH)
-        set(GENERATE_TEST_VERILOG_PATH ../${MODULE}.v)
-    endif()
+    cmake_parse_arguments(GENERATE_TEST "" "" "VERILATOR_ARGS;SOURCES" ${ARGN})
 
     add_executable(${MODULE}-test
         ${MODULE}.cpp
@@ -20,7 +16,7 @@ function(generate_test MODULE)
         ${MODULE}-test
         SOURCES
         ../flatten.v
-        "${GENERATE_TEST_VERILOG_PATH}"
+        ${GENERATE_TEST_SOURCES}
         TOP_MODULE ${MODULE}
         PREFIX V${MODULE}
         TRACE
@@ -31,6 +27,7 @@ function(generate_test MODULE)
     )
 endfunction()
 
-generate_test(FlattenTest VERILOG_PATH FlattenTest.v)
-generate_test(BusArbiter VERILATOR_ARGS -GSTATION_COUNT=4 -GBUS_COUNT=2)
-generate_test(IntegerUnit VERILATOR_ARGS -GSTATION_INDEX_SIZE=2 -GBUS_COUNT=2)
+generate_test(FlattenTest SOURCES FlattenTest.v)
+generate_test(BusArbiter SOURCES ../BusArbiter.v VERILATOR_ARGS -GSTATION_COUNT=4 -GBUS_COUNT=2)
+generate_test(StationValue SOURCES ../StationValue.v VERILATOR_ARGS -GSTATION_INDEX_SIZE=2 -GBUS_COUNT=2)
+generate_test(IntegerUnit SOURCES ../IntegerUnit.v  VERILATOR_ARGS -GSTATION_INDEX_SIZE=2 -GBUS_COUNT=2)

@@ -36,6 +36,7 @@ run_command(
 modules = [    
     'FlattenTest',
     'BusArbiter',
+    'StationValue',
     'IntegerUnit'
 ]
 
