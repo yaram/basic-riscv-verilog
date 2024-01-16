@@ -2,6 +2,7 @@
 #define VL_TIME_CONTEXT
 #include "verilated.h"
 #include "VBusArbiter.h"
+#define MODULE_NAME BusArbiter
 #include "shared.h"
 
 #define SIZE 32
@@ -10,22 +11,18 @@
 #define BUS_COUNT 2
 
 int main(int argc, char *argv[]) { 
-    VerilatedContext context{};
-    context.commandArgs(argc, argv);
-
-    VBusArbiter top(&context);
+    init();
 
     top.station_ready_flat = 0;
-    top.eval();
+    do_eval();
 
     if(top.bus_asserted_flat != 0) {
-        fprintf(stderr, "Test no assertions failed\n");
-        return 1;
+        test_failed("no assertions");
     }
 
     set_bit(&top.station_ready_flat, 1);
     top.station_value_flat.at(1) = 0xCAFEBABE;
-    top.eval();
+    do_eval();
 
     if(
         get_bit(top.bus_asserted_flat, 0) != 1 ||
@@ -37,13 +34,12 @@ int main(int argc, char *argv[]) {
         get_bit(top.station_is_asserting_flat, 2) != 0 ||
         get_bit(top.station_is_asserting_flat, 3) != 0
     ) {
-        fprintf(stderr, "Test single station failed\n");
-        return 1;
+        test_failed("single station");
     }
 
     set_bit(&top.station_ready_flat, 0);
     top.station_value_flat.at(0) = 0xFACEFEED;
-    top.eval();
+    do_eval();
 
     if(
         get_bit(top.bus_asserted_flat, 0) != 1 ||
@@ -57,13 +53,12 @@ int main(int argc, char *argv[]) {
         get_bit(top.station_is_asserting_flat, 2) != 0 ||
         get_bit(top.station_is_asserting_flat, 3) != 0
     ) {
-        fprintf(stderr, "Test multiple station failed\n");
-        return 1;
+        test_failed("multiple station");
     }
 
     set_bit(&top.station_ready_flat, 2);
     top.station_value_flat.at(2) = 0xFFFFFFFF;
-    top.eval();
+    do_eval();
 
     if(
         get_bit(top.bus_asserted_flat, 0) != 1 ||
@@ -77,9 +72,10 @@ int main(int argc, char *argv[]) {
         get_bit(top.station_is_asserting_flat, 2) != 0 ||
         get_bit(top.station_is_asserting_flat, 3) != 0
     ) {
-        fprintf(stderr, "Test multiple station contention failed\n");
-        return 1;
+        test_failed("multiple station contention");
     }
+
+    end();
 
     return 0;
 }

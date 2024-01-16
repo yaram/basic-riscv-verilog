@@ -1,29 +1,16 @@
 #define VL_TIME_CONTEXT
 #include "verilated.h"
 #include "VStationParameter.h"
+#define MODULE_NAME StationParameter
+#define MODULE_IS_CLOCKED
 #include "shared.h"
-
-static void step(VerilatedContext *context, VStationParameter *top) {
-    top->clock = 1;
-
-    top->eval();
-    context->timeInc(1);
-
-    top->clock = 0;
-
-    top->eval();
-    context->timeInc(1);
-}
 
 #define SIZE 32
 #define STATION_INDEX_SIZE 2
 #define BUS_COUNT 2
 
 int main(int argc, char *argv[]) { 
-    VerilatedContext context{};
-    context.commandArgs(argc, argv);
-
-    VStationParameter top(&context);
+    init();
 
     top.occupied = 0;
     top.preload_value = 0;
@@ -34,48 +21,46 @@ int main(int argc, char *argv[]) {
     top.bus_value_flat = 0;
 
     top.reset = 1;
-    step(&context, &top);
+    step();
 
     top.reset = 0;
-    step(&context, &top);
+    step();
 
     if(top.occupied != 0) {
-        fprintf(stderr, "Test reset failed\n");
-        return 1;
+        test_failed("reset");
     }
 
     top.occupied = 1;
     top.preload_value = 1;
     top.preloaded_value = 0xCAFEBABE;
-    step(&context, &top);
+    step();
 
     if(top.loaded != 1 || top.value != (IData)0xCAFEBABE) {
-        fprintf(stderr, "Test set occupied preloaded failed\n");
-        return 1;
+        test_failed("set occupied preloaded");
     }
 
     top.occupied = 0;
-    step(&context, &top);
+    step();
 
     top.occupied = 1;
     top.preload_value = 0;
     top.source_index = 2;
-    step(&context, &top);
+    step();
 
     if(top.loaded != 0) {
-        fprintf(stderr, "Test set occupied bus-loaded failed\n");
-        return 1;
+        test_failed("set occupied bus-loaded");
     }
 
     set_bit(&top.bus_asserted_flat, 1);
     set_sub_bits(&top.bus_source_flat, 1 * STATION_INDEX_SIZE, STATION_INDEX_SIZE, 2);
     set_sub_bits(&top.bus_value_flat, 1 * SIZE, SIZE, 0xFACEFEED);
-    step(&context, &top);
+    step();
 
     if(top.loaded != 1 || top.value != (IData)0xFACEFEED) {
-        fprintf(stderr, "Test load value from bus failed\n");
-        return 1;
+        test_failed("load value from bus");
     }
+
+    end();
 
     return 0;
 }
