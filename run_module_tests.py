@@ -37,7 +37,8 @@ modules = [
     'FlattenTest',
     'BusArbiter',
     'StationParameter',
-    'IntegerUnit'
+    'IntegerUnit',
+    'RegisterFile'
 ]
 
 for name in modules:

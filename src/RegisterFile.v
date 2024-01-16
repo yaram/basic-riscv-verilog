@@ -1,3 +1,4 @@
+// Multiple write to the same register on the same clock cycle will cause the write on the the higher-index write port to be discarded!
 module RegisterFile
 #(
     parameter SIZE = 32,
@@ -36,9 +37,30 @@ module RegisterFile
     integer i;
     integer j;
 
+    reg register_being_written[0 : REGISTER_COUNT - 1];
+    reg [SIZE - 1 : 0]register_write_value[0 : REGISTER_COUNT - 1];
+
     always @* begin
-        for (i = 0; i < READ_COUNT; i = i + 1) begin
-            read_data[i] = registers[read_index[i]];
+            for (i = 0; i < READ_COUNT; i = i + 1) begin
+                read_data[i] = 0;
+
+                for (j = 0; j < REGISTER_COUNT; j = j + 1) begin
+                    if (read_index[i] == j[REGISTER_INDEX_SIZE - 1 : 0]) begin
+                        read_data[i] = registers[j];
+                    end
+                end
+            end
+
+        for (i = 0; i < REGISTER_COUNT; i = i + 1) begin
+            register_being_written[i] = 0;
+            register_write_value[i] = 0;
+
+            for (j = 0; j < WRITE_COUNT; j = j + 1) begin
+                if (!register_being_written[i] && write_enable[j] && write_index[j] == i[REGISTER_INDEX_SIZE - 1 : 0]) begin
+                    register_being_written[i] = 1;
+                    register_write_value[i] = write_data[j];
+                end
+            end
         end
     end
 
@@ -48,9 +70,9 @@ module RegisterFile
                 registers[i] <= 0;
             end
         end else begin
-            for (i = 0; i < WRITE_COUNT; i = i + 1) begin
-                if (write_enable[i]) begin
-                    registers[write_index[i]] <= write_data[i];
+            for (i = 0; i < REGISTER_COUNT; i = i + 1) begin
+                if (register_being_written[i]) begin
+                    registers[i] <= register_write_value[i];
                 end
             end
 
