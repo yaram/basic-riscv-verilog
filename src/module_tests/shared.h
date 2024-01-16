@@ -1,6 +1,6 @@
 #pragma once
 
-#if defined(VM_TRACE)
+#if defined(TRACING)
 #include "verilated_vcd_c.h"
 #endif
 
@@ -171,7 +171,7 @@ static inline void reverse_bit_order(QData *data) {
 
 #define MODULE_CLASS CONCATENATE(V, MODULE_NAME)
 
-#if defined(VM_TRACE)
+#if defined(TRACING)
 
 #define MODULE_VCD_FILE STRING_CONCATENATE(STRINGIFY(MODULE_NAME), ".vcd")
 

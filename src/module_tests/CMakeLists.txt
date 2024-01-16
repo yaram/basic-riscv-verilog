@@ -19,7 +19,6 @@ function(generate_test MODULE)
         ${GENERATE_TEST_SOURCES}
         TOP_MODULE ${MODULE}
         PREFIX V${MODULE}
-        TRACE
         VERILATOR_ARGS
         --language 1364-2005
         -Wno-UNOPTFLAT
