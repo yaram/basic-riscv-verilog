@@ -1,58 +1,60 @@
+`default_nettype none
+
 module InstructionDecoder (
     input [31 : 0]instruction,
 
-    output reg valid_instruction,
+    output logic valid_instruction,
 
     output [4 : 0]source_1_register_index,
-    output reg source_2_is_immediate,
+    output logic source_2_is_immediate,
     output [4 : 0]source_2_register_index,
-    output reg [31 : 0]source_2_immediate_value,
+    output logic [31 : 0]source_2_immediate_value,
     output [4 : 0]destination_register_index,
 
-    output reg integer_unit,
-    output reg [3 : 0]integer_unit_operation,
+    output logic integer_unit,
+    output logic [3 : 0]integer_unit_operation,
 
-    output reg multiplier,
-    output reg [1 : 0]multiplier_operation,
-    output reg multiplier_source_1_signed,
-    output reg multiplier_source_2_signed,
-    output reg multiplier_upper_result,
+    output logic multiplier,
+    output logic [1 : 0]multiplier_operation,
+    output logic multiplier_source_1_signed,
+    output logic multiplier_source_2_signed,
+    output logic multiplier_upper_result,
 
-    output reg load_immediate,
-    output reg load_immediate_add_instruction_counter,
+    output logic load_immediate,
+    output logic load_immediate_add_instruction_counter,
     output [31 : 0]load_immediate_value,
 
-    output reg branch,
-    output reg [2 : 0]branch_condition,
+    output logic branch,
+    output logic [2 : 0]branch_condition,
     output [31 : 0]branch_immediate,
 
-    output reg jump_and_link,
-    output reg jump_and_link_relative,
+    output logic jump_and_link,
+    output logic jump_and_link_relative,
     output [31 : 0]jump_and_link_immediate,
     output [31 : 0]jump_and_link_relative_immediate,
 
-    output reg memory_unit,
-    output reg memory_unit_operation,
-    output reg [1 : 0]memory_unit_data_size,
-    output reg memory_unit_signed,
-    output reg [31 : 0]memory_unit_address_offset_immediate,
+    output logic memory_unit,
+    output logic memory_unit_operation,
+    output logic [1 : 0]memory_unit_data_size,
+    output logic memory_unit_signed,
+    output logic [31 : 0]memory_unit_address_offset_immediate,
 
-    output reg fence
+    output logic fence
 );
-    wire [6 : 0]opcode = instruction[6 : 0];
+    logic [6 : 0]opcode = instruction[6 : 0];
 
-    wire [2 : 0]function_3 = instruction[14 : 12];
-    wire [6 : 0]function_7 = instruction[31 : 25];
+    logic [2 : 0]function_3 = instruction[14 : 12];
+    logic [6 : 0]function_7 = instruction[31 : 25];
 
     assign source_1_register_index = instruction[19 : 15];
     assign source_2_register_index = instruction[24 : 20];
     assign destination_register_index = instruction[11 : 7];
 
-    wire [31 : 0]immediate = {{21{instruction[31]}}, instruction[30 : 20]};
-    wire [31 : 0]immediate_store = {{21{instruction[31]}}, instruction[30 : 25], instruction[11 : 7]};
-    wire [31 : 0]immediate_branch = {{20{instruction[31]}}, instruction[7], instruction[30 : 25], instruction[11 : 8], 1'b0};
-    wire [19 : 0]immediate_upper = instruction[31 : 12];
-    wire [31 : 0]immediate_jump = {{12{instruction[31]}}, instruction[19 : 12], instruction[20], instruction[30 : 21], 1'b0};
+    logic [31 : 0]immediate = {{21{instruction[31]}}, instruction[30 : 20]};
+    logic [31 : 0]immediate_store = {{21{instruction[31]}}, instruction[30 : 25], instruction[11 : 7]};
+    logic [31 : 0]immediate_branch = {{20{instruction[31]}}, instruction[7], instruction[30 : 25], instruction[11 : 8], 1'b0};
+    logic [19 : 0]immediate_upper = instruction[31 : 12];
+    logic [31 : 0]immediate_jump = {{12{instruction[31]}}, instruction[19 : 12], instruction[20], instruction[30 : 21], 1'b0};
 
     assign load_immediate_value = {immediate_upper, 12'b0};
 
@@ -61,7 +63,7 @@ module InstructionDecoder (
     assign jump_and_link_immediate = immediate_jump;
     assign jump_and_link_relative_immediate = immediate;
 
-    always @* begin
+    always_comb begin
         valid_instruction = 1;
 
         source_2_is_immediate = 0;

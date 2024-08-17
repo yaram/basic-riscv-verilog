@@ -16,9 +16,12 @@ int main(int argc, char *argv[]) {
     top.preload_value = 0;
     top.source_index = 0;
     top.preloaded_value = 0;
-    top.bus_asserted_flat = 0;
-    top.bus_source_flat = 0;
-    top.bus_value_flat = 0;
+    top.bus_asserted[0] = 0;
+    top.bus_source[0] = 0;
+    top.bus_value[0] = 0;
+    top.bus_asserted[1] = 0;
+    top.bus_source[1] = 0;
+    top.bus_value[1] = 0;
 
     top.reset = 1;
     step();
@@ -51,9 +54,9 @@ int main(int argc, char *argv[]) {
         test_failed("set occupied bus-loaded");
     }
 
-    set_bit(&top.bus_asserted_flat, 1);
-    set_sub_bits(&top.bus_source_flat, 1 * STATION_INDEX_SIZE, STATION_INDEX_SIZE, 2);
-    set_sub_bits(&top.bus_value_flat, 1 * SIZE, SIZE, 0xFACEFEED);
+    top.bus_asserted[1] = 1;
+    top.bus_source[1] = 2;
+    top.bus_value[1] = 0xFACEFEED;
     step();
 
     if(top.loaded != 1 || top.value != (IData)0xFACEFEED) {

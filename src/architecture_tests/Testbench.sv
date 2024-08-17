@@ -1,26 +1,28 @@
-module Testbench(
-    input wire reset,
-    input wire clock
-);
-    parameter ram_size = 1024 * 64;
+`default_nettype none
 
-    reg [7 : 0]ram[0 : ram_size - 1];
+module Testbench(
+    input reset,
+    input clock
+);
+    parameter int ram_size = 1024 * 64;
+
+    logic [7 : 0]ram[0 : ram_size - 1];
 
     initial begin
         $readmemh(`ROM_PATH, ram);
     end
 
-    wire [31 : 0]memory_address;
-    reg [31 : 0]memory_data_in;
-    wire [31 : 0]memory_data_out;
-    wire [1 : 0]memory_data_size;
-    wire memory_enable;
-    wire memory_operation;
-    reg memory_ready;
+    logic [31 : 0]memory_address;
+    logic [31 : 0]memory_data_in;
+    logic [31 : 0]memory_data_out;
+    logic [1 : 0]memory_data_size;
+    logic memory_enable;
+    logic memory_operation;
+    logic memory_ready;
 
     CPU cpu(clock, reset, memory_enable, memory_operation, memory_ready, memory_data_size, memory_address, memory_data_in, memory_data_out);
 
-    always @(posedge clock) begin
+    always_ff @(posedge clock) begin
         if (reset) begin
             memory_ready <= 0;
         end else begin

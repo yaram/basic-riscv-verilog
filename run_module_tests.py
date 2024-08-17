@@ -33,8 +33,7 @@ run_command(
     build_directory
 )
 
-modules = [    
-    'FlattenTest',
+modules = [
     'BusArbiter',
     'StationParameter',
     'IntegerUnit',

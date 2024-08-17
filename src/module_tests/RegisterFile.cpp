@@ -13,10 +13,14 @@
 int main(int argc, char *argv[]) { 
     init();
 
-    top.read_index_flat = 0;
-    top.write_enable_flat = 0;
-    top.write_index_flat = 0;
-    top.write_data_flat = 0;
+    top.read_index[0] = 0;
+    top.read_index[1] = 0;
+    top.write_enable[0] = 0;
+    top.write_index[0] = 0;
+    top.write_data[0] = 0;
+    top.write_enable[1] = 0;
+    top.write_index[1] = 0;
+    top.write_data[1] = 0;
 
     top.reset = 1;
     step();
@@ -24,63 +28,63 @@ int main(int argc, char *argv[]) {
     top.reset = 0;
     step();
 
-    if(top.read_data_flat != 0) {
+    if(top.read_data[0] != 0 || top.read_data[1] != 0) {
         test_failed("reset");
     }
 
-    set_sub_bits(&top.read_index_flat, 0 * REGISTER_INDEX_SIZE, REGISTER_INDEX_SIZE, 1);
-    set_bit(&top.write_enable_flat, 0);
-    set_sub_bits(&top.write_index_flat, 0 * REGISTER_INDEX_SIZE, REGISTER_INDEX_SIZE, 1);
-    set_sub_bits(&top.write_data_flat, 0 * SIZE, SIZE, 0xCAFEBABE);
+    top.read_index[0] = 1;
+    top.write_enable[0] = 1;
+    top.write_index[0] = 1;
+    top.write_data[0] = 0xCAFEBABE;
     step();
 
-    if(get_sub_bits(top.read_data_flat, 0 * SIZE, SIZE) != 0xCAFEBABE) {
+    if(top.read_data[0] != 0xCAFEBABE) {
         test_failed("write single & read single");
     }
 
-    unset_bit(&top.write_enable_flat, 0);
+    top.write_enable[0] = 0;
     step();
 
-    if(get_sub_bits(top.read_data_flat, 0 * SIZE, SIZE) != 0xCAFEBABE) {
+    if(top.read_data[0] != 0xCAFEBABE) {
         test_failed("write single & read single");
     }
 
-    set_sub_bits(&top.read_index_flat, 1 * REGISTER_INDEX_SIZE, REGISTER_INDEX_SIZE, 1);
+    top.read_index[1] = 1;
     step();
 
-    if(get_sub_bits(top.read_data_flat, 1 * SIZE, SIZE) != 0xCAFEBABE) {
+    if(top.read_data[1] != 0xCAFEBABE) {
         test_failed("write single & read double overlapped");
     }
 
-    set_sub_bits(&top.read_index_flat, 1 * REGISTER_INDEX_SIZE, REGISTER_INDEX_SIZE, 0);
-    set_bit(&top.write_enable_flat, 0);
-    set_sub_bits(&top.write_index_flat, 0 * REGISTER_INDEX_SIZE, REGISTER_INDEX_SIZE, 1);
-    set_sub_bits(&top.write_data_flat, 0 * SIZE, SIZE, 0xCAFEBABE);
-    set_bit(&top.write_enable_flat, 1);
-    set_sub_bits(&top.write_index_flat, 1 * REGISTER_INDEX_SIZE, REGISTER_INDEX_SIZE, 0);
-    set_sub_bits(&top.write_data_flat, 1 * SIZE, SIZE, 0xFACEFEED);
+    top.read_index[1] = 0;
+    top.write_enable[0] = 1;
+    top.write_index[0] = 1;
+    top.write_data[0] = 0xCAFEBABE;
+    top.write_enable[1] = 1;
+    top.write_index[1] = 0;
+    top.write_data[1] = 0xFACEFEED;
     step();
 
     if(
-        get_sub_bits(top.read_data_flat, 0 * SIZE, SIZE) != 0xCAFEBABE ||
-        get_sub_bits(top.read_data_flat, 1 * SIZE, SIZE) != 0xFACEFEED
+        top.read_data[0] != 0xCAFEBABE ||
+        top.read_data[1] != 0xFACEFEED
     ) {
         test_failed("write double & read double");
     }
 
-    set_sub_bits(&top.read_index_flat, 0 * REGISTER_INDEX_SIZE, REGISTER_INDEX_SIZE, 0);
-    set_sub_bits(&top.read_index_flat, 1 * REGISTER_INDEX_SIZE, REGISTER_INDEX_SIZE, 0);
-    set_bit(&top.write_enable_flat, 0);
-    set_sub_bits(&top.write_index_flat, 0 * REGISTER_INDEX_SIZE, REGISTER_INDEX_SIZE, 0);
-    set_sub_bits(&top.write_data_flat, 0 * SIZE, SIZE, 0xCAFEBABE);
-    set_bit(&top.write_enable_flat, 1);
-    set_sub_bits(&top.write_index_flat, 1 * REGISTER_INDEX_SIZE, REGISTER_INDEX_SIZE, 0);
-    set_sub_bits(&top.write_data_flat, 1 * SIZE, SIZE, 0xFACEFEED);
+    top.read_index[0] = 0;
+    top.read_index[1] = 0;
+    top.write_enable[0] = 1;
+    top.write_index[0] = 0;
+    top.write_data[0] = 0xCAFEBABE;
+    top.write_enable[1] = 1;
+    top.write_index[1] = 0;
+    top.write_data[1] = 0xFACEFEED;
     step();
 
     if(
-        get_sub_bits(top.read_data_flat, 0 * SIZE, SIZE) != 0xCAFEBABE ||
-        get_sub_bits(top.read_data_flat, 1 * SIZE, SIZE) != 0xCAFEBABE
+        top.read_data[0] != 0xCAFEBABE ||
+        top.read_data[1] != 0xCAFEBABE
     ) {
         test_failed("write double overlapped & read double overlapped");
     }

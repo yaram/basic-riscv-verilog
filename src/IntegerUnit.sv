@@ -1,8 +1,10 @@
+`default_nettype none
+
 module IntegerUnit
 #(
-    parameter SIZE = 32,
-    parameter STATION_INDEX_SIZE = 1,
-    parameter BUS_COUNT = 1
+    parameter int SIZE = 32,
+    parameter int STATION_INDEX_SIZE = 1,
+    parameter int BUS_COUNT = 1
 ) (
     input clock,
     input reset,
@@ -17,27 +19,18 @@ module IntegerUnit
     input [SIZE - 1 : 0]preloaded_b_value,
 
     output result_ready,
-    output reg [SIZE - 1 : 0]result,
+    output logic [SIZE - 1 : 0]result,
 
-    input `FLAT_ARRAY(bus_asserted, 1, BUS_COUNT),
-    input `FLAT_ARRAY(bus_source, STATION_INDEX_SIZE, BUS_COUNT),
-    input `FLAT_ARRAY(bus_value, SIZE, BUS_COUNT)
+    input bus_asserted[0 : BUS_COUNT - 1],
+    input [STATION_INDEX_SIZE - 1 : 0]bus_source[0 : BUS_COUNT - 1],
+    input [SIZE - 1 : 0]bus_value[0 : BUS_COUNT - 1]
 );
-    genvar flatten_i;
+    logic previous_occupied;
 
-    wire `ARRAY(bus_asserted, 1, BUS_COUNT);
-    `NORMAL_EQUALS_FLAT(bus_asserted, 1, BUS_COUNT);
-    wire `ARRAY(bus_source, STATION_INDEX_SIZE, BUS_COUNT);
-    `NORMAL_EQUALS_FLAT(bus_source, STATION_INDEX_SIZE, BUS_COUNT);
-    wire `ARRAY(bus_value, SIZE, BUS_COUNT);
-    `NORMAL_EQUALS_FLAT(bus_value, SIZE, BUS_COUNT);
+    logic [3 : 0]saved_operation;
 
-    reg previous_occupied;
-
-    reg [3 : 0]saved_operation;
-
-    wire a_loaded;
-    wire [SIZE - 1 : 0]a_value;
+    logic a_loaded;
+    logic [SIZE - 1 : 0]a_value;
 
     StationParameter #(
         .SIZE(SIZE),
@@ -52,13 +45,13 @@ module IntegerUnit
         .source_index(a_source),
         .loaded(a_loaded),
         .value(a_value),
-        .bus_asserted_flat(bus_asserted_flat),
-        .bus_source_flat(bus_source_flat),
-        .bus_value_flat(bus_value_flat)
+        .bus_asserted(bus_asserted),
+        .bus_source(bus_source),
+        .bus_value(bus_value)
     );
 
-    wire b_loaded;
-    wire [SIZE - 1 : 0]b_value;
+    logic b_loaded;
+    logic [SIZE - 1 : 0]b_value;
 
     StationParameter #(
         .SIZE(SIZE),
@@ -73,16 +66,14 @@ module IntegerUnit
         .source_index(b_source),
         .loaded(b_loaded),
         .value(b_value),
-        .bus_asserted_flat(bus_asserted_flat),
-        .bus_source_flat(bus_source_flat),
-        .bus_value_flat(bus_value_flat)
+        .bus_asserted(bus_asserted),
+        .bus_source(bus_source),
+        .bus_value(bus_value)
     );
 
     assign result_ready = occupied && a_loaded && b_loaded;
 
-    integer i;
-
-    always @* begin
+    always_comb begin
         case (saved_operation)
             0 : begin
                 result = a_value + b_value;
@@ -132,7 +123,7 @@ module IntegerUnit
         endcase
     end
 
-    always @(posedge clock) begin
+    always_ff @(posedge clock) begin
         if (reset) begin
             previous_occupied <= 0;
         end else begin

@@ -11,21 +11,20 @@ add_executable(testbench
 verilate(
     testbench
     SOURCES
-    Testbench.v
-    ../flatten.v
-    ../InstructionDecoder.v
-    ../RegisterFile.v
-    ../IntegerUnit.v
-    ../Multiplier.v
-    ../MemoryUnit.v
-    ../BusArbiter.v
-    ../MemoryArbiter.v
-    ../CPU.v
+    Testbench.sv
+    ../InstructionDecoder.sv
+    ../RegisterFile.sv
+    ../IntegerUnit.sv
+    ../Multiplier.sv
+    ../MemoryUnit.sv
+    ../BusArbiter.sv
+    ../MemoryArbiter.sv
+    ../CPU.sv
     TOP_MODULE Testbench
     TRACE
     VERILATOR_ARGS
     "-DSIMULATION"
     "-DROM_PATH=\"${CMAKE_CURRENT_BINARY_DIR}/test.hex\""
-    --language 1364-2005
+    --language 1800-2017
     -Wno-UNOPTFLAT
 )

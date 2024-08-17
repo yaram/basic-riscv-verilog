@@ -1,9 +1,11 @@
+`default_nettype none
+
 module Multiplier
 #(
-    parameter ITERATIONS_PER_CYCLE = 4, // Must be a factor of 2 * SIZE
-    parameter SIZE = 32,
-    parameter STATION_INDEX_SIZE = 1,
-    parameter BUS_COUNT = 1
+    parameter int ITERATIONS_PER_CYCLE = 4, // Must be a factor of 2 * SIZE
+    parameter int SIZE = 32,
+    parameter int STATION_INDEX_SIZE = 1,
+    parameter int BUS_COUNT = 1
 )
 (
     input clock,
@@ -22,58 +24,49 @@ module Multiplier
     input [STATION_INDEX_SIZE - 1 : 0]b_source,
     input [SIZE - 1 : 0]preloaded_b_value,
 
-    output reg occupied,
+    output logic occupied,
     output result_ready,
-    output reg [SIZE - 1 : 0]result,
+    output logic [SIZE - 1 : 0]result,
 
-    input `FLAT_ARRAY(bus_asserted, 1, BUS_COUNT),
-    input `FLAT_ARRAY(bus_source, STATION_INDEX_SIZE, BUS_COUNT),
-    input `FLAT_ARRAY(bus_value, SIZE, BUS_COUNT)
+    input bus_asserted[0 : BUS_COUNT - 1],
+    input [STATION_INDEX_SIZE - 1 : 0]bus_source[0 : BUS_COUNT - 1],
+    input [SIZE - 1 : 0]bus_value[0 : BUS_COUNT - 1]
 );
-    genvar flatten_i;
+    localparam int ITERATION_INDEX_SIZE = $clog2(SIZE * 2);
 
-    localparam ITERATION_INDEX_SIZE = $clog2(SIZE * 2);
+    logic [1 : 0]saved_operation;
+    logic saved_upper_result;
+    logic saved_a_signed;
+    logic saved_b_signed;
 
-    wire `ARRAY(bus_asserted, 1, BUS_COUNT);
-    `NORMAL_EQUALS_FLAT(bus_asserted, 1, BUS_COUNT);
-    wire `ARRAY(bus_source, STATION_INDEX_SIZE, BUS_COUNT);
-    `NORMAL_EQUALS_FLAT(bus_source, STATION_INDEX_SIZE, BUS_COUNT);
-    wire `ARRAY(bus_value, SIZE, BUS_COUNT);
-    `NORMAL_EQUALS_FLAT(bus_value, SIZE, BUS_COUNT);
+    logic a_loaded;
+    logic [SIZE - 1 : 0]a_value;
 
-    reg [1 : 0]saved_operation;
-    reg saved_upper_result;
-    reg saved_a_signed;
-    reg saved_b_signed;
-
-    reg a_loaded;
-    reg [SIZE - 1 : 0]a_value;
-
-    reg b_loaded;
-    reg [SIZE - 1 : 0]b_value;
+    logic b_loaded;
+    logic [SIZE - 1 : 0]b_value;
 
     assign result_ready = occupied && a_loaded && b_loaded && iteration == SIZE * 2;
 
     integer i;
 
-    reg a_value_found_on_bus;
-    reg [SIZE - 1 : 0]a_value_on_bus;
+    logic a_value_found_on_bus;
+    logic [SIZE - 1 : 0]a_value_on_bus;
 
-    reg b_value_found_on_bus;
-    reg [SIZE - 1 : 0]b_value_on_bus;
+    logic b_value_found_on_bus;
+    logic [SIZE - 1 : 0]b_value_on_bus;
 
-    reg [ITERATION_INDEX_SIZE - 1 : 0]iteration;
-    reg [SIZE * 2 - 1 : 0]accumulator;
-    reg [SIZE * 2 - 1 : 0]quotient;
+    logic [ITERATION_INDEX_SIZE - 1 : 0]iteration;
+    logic [SIZE * 2 - 1 : 0]accumulator;
+    logic [SIZE * 2 - 1 : 0]quotient;
 
-    reg [SIZE * 2 - 1 : 0]extended_a_value;
-    reg [SIZE * 2 - 1 : 0]extended_b_value;
+    logic [SIZE * 2 - 1 : 0]extended_a_value;
+    logic [SIZE * 2 - 1 : 0]extended_b_value;
 
-    reg [ITERATION_INDEX_SIZE - 1 : 0]sub_cycle_iteration;
-    reg [SIZE * 2 - 1 : 0]sub_cycle_accumulator;
-    reg [SIZE * 2 - 1 : 0]sub_cycle_quotient;
+    logic [ITERATION_INDEX_SIZE - 1 : 0]sub_cycle_iteration;
+    logic [SIZE * 2 - 1 : 0]sub_cycle_accumulator;
+    logic [SIZE * 2 - 1 : 0]sub_cycle_quotient;
 
-    always @* begin
+    always_comb begin
         if (saved_a_signed) begin
             extended_a_value = {{SIZE{a_value[31]}}, a_value};
         end else begin
@@ -90,7 +83,7 @@ module Multiplier
         sub_cycle_accumulator = accumulator;
         sub_cycle_quotient = quotient;
 
-        for (i = 0; i < ITERATIONS_PER_CYCLE; i = i + 1) begin
+        for (int i = 0; i < ITERATIONS_PER_CYCLE; i += 1) begin
             if (operation == 0) begin
                 if (extended_b_value[SIZE * 2 - 1 - sub_cycle_iteration]) begin
                     sub_cycle_accumulator = sub_cycle_accumulator + extended_a_value;
@@ -147,7 +140,7 @@ module Multiplier
         endcase
     end
 
-    always @(posedge clock) begin
+    always_ff @(posedge clock) begin
         if (reset) begin
             occupied <= 0;
         end else begin

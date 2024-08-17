@@ -16,11 +16,16 @@ int main(int argc, char *argv[]) {
 
     top.memory_ready = 0;
     top.memory_data_in = 0;
-    top.accessor_memory_enable_flat = 0;
-    top.accessor_memory_operation_flat = 0;
-    top.accessor_memory_byte_mask_flat = 0;
-    top.accessor_memory_word_address_flat = 0;
-    top.accessor_memory_data_out_flat = 0;
+    top.accessor_memory_enable[0] = 0;
+    top.accessor_memory_operation[0] = 0;
+    top.accessor_memory_byte_mask[0] = 0;
+    top.accessor_memory_word_address[0] = 0;
+    top.accessor_memory_data_out[0] = 0;
+    top.accessor_memory_enable[1] = 0;
+    top.accessor_memory_operation[1] = 0;
+    top.accessor_memory_byte_mask[1] = 0;
+    top.accessor_memory_word_address[1] = 0;
+    top.accessor_memory_data_out[1] = 0;
 
     top.reset = 1;
     step();
@@ -32,9 +37,9 @@ int main(int argc, char *argv[]) {
         test_failed("reset");
     }
 
-    set_bit(&top.accessor_memory_enable_flat, 0);
-    set_sub_bits(&top.accessor_memory_byte_mask_flat, 0 * SIZE_BYTES, SIZE_BYTES, 0b1010);
-    set_sub_bits(&top.accessor_memory_word_address_flat, 0 * MEMORY_WORD_ADDRESS_SIZE, MEMORY_WORD_ADDRESS_SIZE, 0xAFEBABE);
+    top.accessor_memory_enable[0] = 1;
+    top.accessor_memory_byte_mask[0] = 0b1010;
+    top.accessor_memory_word_address[0] = 0xAFEBABE;
     step();
 
     if(top.memory_enable != 1 || top.memory_operation != 0 || top.memory_byte_mask != 0b1010 || top.memory_word_address != 0xAFEBABE) {
@@ -45,11 +50,11 @@ int main(int argc, char *argv[]) {
     top.memory_data_in = 0xFACEFEED;
     step();
 
-    if(top.memory_enable != 1 || get_sub_bits(top.accessor_memory_data_in_flat, 0 * SIZE, SIZE) != 0xFACEFEED) {
+    if(top.memory_enable != 1 || top.accessor_memory_data_in[0] != 0xFACEFEED) {
         test_failed("read uncontested");
     }
 
-    unset_bit(&top.accessor_memory_enable_flat, 0);
+    top.accessor_memory_enable[0] = 0;
     step();
 
     if(top.memory_enable != 0) {
@@ -59,11 +64,11 @@ int main(int argc, char *argv[]) {
     top.memory_ready = 0;
     step();
 
-    set_bit(&top.accessor_memory_enable_flat, 1);
-    set_bit(&top.accessor_memory_operation_flat, 1);
-    set_sub_bits(&top.accessor_memory_byte_mask_flat, 1 * SIZE_BYTES, SIZE_BYTES, 0b0101);
-    set_sub_bits(&top.accessor_memory_word_address_flat, 1 * MEMORY_WORD_ADDRESS_SIZE, MEMORY_WORD_ADDRESS_SIZE, 0xAFEBABE);
-    set_sub_bits(&top.accessor_memory_data_out_flat, 1 * SIZE, SIZE, 0xFACEFEED);
+    top.accessor_memory_enable[1] = 1;
+    top.accessor_memory_operation[1] = 1;
+    top.accessor_memory_byte_mask[1] = 0b0101;
+    top.accessor_memory_word_address[1] = 0xAFEBABE;
+    top.accessor_memory_data_out[1] = 0xFACEFEED;
     step();
 
     if(
@@ -83,7 +88,7 @@ int main(int argc, char *argv[]) {
         test_failed("write uncontested");
     }
 
-    unset_bit(&top.accessor_memory_enable_flat, 1);
+    top.accessor_memory_enable[1] = 0;
     step();
 
     if(top.memory_enable != 0) {
@@ -93,8 +98,8 @@ int main(int argc, char *argv[]) {
     top.memory_ready = 0;
     step();
 
-    set_bit(&top.accessor_memory_enable_flat, 0);
-    set_bit(&top.accessor_memory_enable_flat, 1);
+    top.accessor_memory_enable[0] = 1;
+    top.accessor_memory_enable[1] = 1;
     step();
 
     if(top.memory_enable != 1 || top.memory_operation != 0 || top.memory_byte_mask != 0b1010 || top.memory_word_address != 0xAFEBABE) {
@@ -105,11 +110,11 @@ int main(int argc, char *argv[]) {
     top.memory_data_in = 0xFACEFEED;
     step();
 
-    if(top.memory_enable != 1 || get_sub_bits(top.accessor_memory_data_in_flat, 0 * SIZE, SIZE) != 0xFACEFEED) {
+    if(top.memory_enable != 1 || top.accessor_memory_data_in[0] != 0xFACEFEED) {
         test_failed("read & write contested");
     }
 
-    unset_bit(&top.accessor_memory_enable_flat, 0);
+    top.accessor_memory_enable[0] = 0;
     step();
 
     if(top.memory_enable != 0) {
@@ -140,7 +145,7 @@ int main(int argc, char *argv[]) {
         test_failed("read & write contested");
     }
 
-    unset_bit(&top.accessor_memory_enable_flat, 1);
+    top.accessor_memory_enable[1] = 0;
     step();
 
     if(top.memory_enable != 0) {

@@ -20,9 +20,12 @@ int main(int argc, char *argv[]) {
     top.preload_b_value = 0;
     top.b_source = 0;
     top.preloaded_b_value = 0;
-    top.bus_asserted_flat = 0;
-    top.bus_source_flat = 0;
-    top.bus_value_flat = 0;
+    top.bus_asserted[0] = 0;
+    top.bus_source[0] = 0;
+    top.bus_value[0] = 0;
+    top.bus_asserted[1] = 0;
+    top.bus_source[1] = 0;
+    top.bus_value[1] = 0;
 
     top.reset = 1;
     step();
@@ -61,16 +64,16 @@ int main(int argc, char *argv[]) {
         test_failed("set occupied preloaded A bus-loaded B");
     }
 
-    set_bit(&top.bus_asserted_flat, 1);
-    set_sub_bits(&top.bus_source_flat, 1 * STATION_INDEX_SIZE, STATION_INDEX_SIZE, 2);
-    set_sub_bits(&top.bus_value_flat, 1 * SIZE, SIZE, 50);
+    top.bus_asserted[1] = 1;
+    top.bus_source[1] = 2;
+    top.bus_value[1] = 50;
     step();
 
     if(top.result_ready != 1 || top.result != (IData)30 + (IData)50) {
         test_failed("load B value from bus");
     }
 
-    unset_bit(&top.bus_asserted_flat, 1);
+    top.bus_asserted[1] = 0;
     step();
 
     if(top.result_ready != 1 || top.result != 80) {
@@ -92,9 +95,9 @@ int main(int argc, char *argv[]) {
         test_failed("set occupied bus-loaded A preloaded B");
     }
 
-    set_bit(&top.bus_asserted_flat, 0);
-    set_sub_bits(&top.bus_source_flat, 0 * STATION_INDEX_SIZE, STATION_INDEX_SIZE, 1);
-    set_sub_bits(&top.bus_value_flat, 0 * SIZE, SIZE, 60);
+    top.bus_asserted[0] = 1;
+    top.bus_source[0] = 1;
+    top.bus_value[0] = 60;
     step();
 
     if(top.result_ready != 1 || top.result != (IData)40 + (IData)60) {
@@ -102,7 +105,7 @@ int main(int argc, char *argv[]) {
     }
 
     top.occupied = 0;
-    unset_bit(&top.bus_asserted_flat, 0);
+    top.bus_asserted[0] = 0;
     step();
 
     top.occupied = 1;

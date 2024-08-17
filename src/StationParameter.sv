@@ -1,8 +1,10 @@
+`default_nettype none
+
 module StationParameter
 #(
-    parameter SIZE = 32,
-    parameter STATION_INDEX_SIZE = 1,
-    parameter BUS_COUNT = 1
+    parameter int SIZE = 32,
+    parameter int STATION_INDEX_SIZE = 1,
+    parameter int BUS_COUNT = 1
 ) (
     input clock,
     input reset,
@@ -13,35 +15,24 @@ module StationParameter
     input [SIZE - 1 : 0]preloaded_value,
     input [STATION_INDEX_SIZE - 1 : 0]source_index,
 
-    output reg loaded,
-    output reg [SIZE - 1 : 0]value,
+    output logic loaded,
+    output logic [SIZE - 1 : 0]value,
 
-    input `FLAT_ARRAY(bus_asserted, 1, BUS_COUNT),
-    input `FLAT_ARRAY(bus_source, STATION_INDEX_SIZE, BUS_COUNT),
-    input `FLAT_ARRAY(bus_value, SIZE, BUS_COUNT)
+    input bus_asserted[0 : BUS_COUNT - 1],
+    input [STATION_INDEX_SIZE - 1 : 0]bus_source[0 : BUS_COUNT - 1],
+    input [SIZE - 1 : 0]bus_value[0 : BUS_COUNT - 1]
 );
-    genvar flatten_i;
+    logic previous_occupied;
 
-    wire `ARRAY(bus_asserted, 1, BUS_COUNT);
-    `NORMAL_EQUALS_FLAT(bus_asserted, 1, BUS_COUNT);
-    wire `ARRAY(bus_source, STATION_INDEX_SIZE, BUS_COUNT);
-    `NORMAL_EQUALS_FLAT(bus_source, STATION_INDEX_SIZE, BUS_COUNT);
-    wire `ARRAY(bus_value, SIZE, BUS_COUNT);
-    `NORMAL_EQUALS_FLAT(bus_value, SIZE, BUS_COUNT);
+    logic [STATION_INDEX_SIZE - 1 : 0]saved_source_index;
 
-    integer i;
+    logic value_found_on_bus;
+    logic [SIZE - 1 : 0]value_on_bus;
 
-    reg previous_occupied;
-
-    reg [STATION_INDEX_SIZE - 1 : 0]saved_source_index;
-
-    reg value_found_on_bus;
-    reg [SIZE - 1 : 0]value_on_bus;
-
-    always @* begin
+    always_comb begin
         value_found_on_bus = 0;
         value_on_bus = 0;
-        for (i = 0; i < BUS_COUNT; i = i + 1) begin
+        for (int i = 0; i < BUS_COUNT; i += 1) begin
             if (!value_found_on_bus && bus_asserted[i] && bus_source[i] == saved_source_index) begin
                 value_found_on_bus = 1;
                 value_on_bus = bus_value[i];
@@ -49,7 +40,7 @@ module StationParameter
         end
     end
 
-    always @(posedge clock) begin
+    always_ff @(posedge clock) begin
         if (reset) begin
             previous_occupied <= 0;
         end else begin
